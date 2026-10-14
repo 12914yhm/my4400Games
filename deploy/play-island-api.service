@@ -1,0 +1,30 @@
+[Unit]
+Description=Play Island accounts and sea-game progress
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/opt/play-island-api/current
+ExecStart=/opt/play-island-node/node-v24.21.0-linux-x64/bin/node /opt/play-island-api/current/server.js
+Environment=NODE_ENV=production
+Environment=PORT=8092
+Environment=API_ONLY=1
+Environment=DATA_DIR=/var/lib/play-island
+Environment=PUBLIC_ORIGIN=https://47.107.99.105
+Environment=COOKIE_PATH=/games/
+Environment=SECURE_COOKIE=1
+Environment=TRUST_PROXY=1
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/play-island
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

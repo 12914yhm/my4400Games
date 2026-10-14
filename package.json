@@ -1,0 +1,13 @@
+{
+  "name": "play-island",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "description": "玩岛 · 轻量小游戏门户框架",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "check": "node --check app.js && node --check server.js && node --check balls-engine.js && node --check balls.js && node --check sea-engine.js && node --check sea-art.js && node --check sea-audio.js && node --check sea.js && node --check accounts-api.js && node --check accounts.js && node --check sea-save.js && node --check sea-weapons.js",
+    "test": "node tests/balls-engine.test.js && node tests/sea-engine.test.js && node tests/sea-art.test.js && node tests/sea-audio.test.js && node tests/accounts.test.js && node tests/sea-progress.test.js && node tests/sea-weapons.test.js"
+  }
+}

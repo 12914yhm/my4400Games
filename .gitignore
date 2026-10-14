@@ -1,0 +1,27 @@
+.data/
+deploy/builds/
+deploy/*.tar.gz
+
+# Local dependencies, credentials and editor state
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.ssh/
+.codex/
+.agents/
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db
+
+# Generated archives, local provenance and deployment records
+assets/sea/*.zip
+assets/sea/v1/generation-sources.json
+deploy/*verification.json
+deploy/test-results.txt
+deploy/latest-release.txt
+deploy/pending-release.txt

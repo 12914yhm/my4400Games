@@ -1,0 +1,35 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "id": "cannon",
+      "prompt": "Use case: stylized-concept. Asset type: production transparent PNG sprite for a premium naval defense browser game, also used as armory card illustration. A SINGLE isolated naval weapon turret, precise orthographic TOP DOWN view, barrel points horizontally RIGHT. Rotating bearing center positioned at 35% image width, 50% height; muzzle ends near 92% width. Entire weapon comfortably inside square canvas with transparent margins. Restrained realistic hand-painted 3D game art, weathered blue-gray naval steel, crisp metallic highlights, visible bolts and mechanical panels, warm brass accents, lighting upper left. Strong readable silhouette at small size. NO platform underneath, no sea, no text, no numbers, no border, no watermark, no muzzle flash, no drop shadow outside object. Genuine transparent background. Standard naval cannon: one medium-length single gun barrel, compact angular armored turret housing, subtle muted gold trim.",
+      "file": "weapon-cannon-v1.png"
+    },
+    {
+      "id": "spread",
+      "prompt": "Use case: stylized-concept. Asset type: production transparent PNG sprite for a premium naval defense browser game, also used as armory card illustration. A SINGLE isolated naval weapon turret, precise orthographic TOP DOWN view, barrel points horizontally RIGHT. Rotating bearing center positioned at 35% image width, 50% height; muzzle ends near 92% width. Entire weapon comfortably inside square canvas with transparent margins. Restrained realistic hand-painted 3D game art, weathered blue-gray naval steel, crisp metallic highlights, visible bolts and mechanical panels, warm brass accents, lighting upper left. Strong readable silhouette at small size. NO platform underneath, no sea, no text, no numbers, no border, no watermark, no muzzle flash, no drop shadow outside object. Genuine transparent background. Scatter naval cannon: THREE visibly separate parallel long barrels on one broad armored turret, slight fan outward, warm copper barrel collars. All three barrels point right. Broad recognizable silhouette.",
+      "file": "weapon-spread-v1.png"
+    },
+    {
+      "id": "howitzer",
+      "prompt": "Use case: stylized-concept. Asset type: production transparent PNG sprite for a premium naval defense browser game, also used as armory card illustration. A SINGLE isolated naval weapon turret, precise orthographic TOP DOWN view, barrel points horizontally RIGHT. Rotating bearing center positioned at 35% image width, 50% height; muzzle ends near 92% width. Entire weapon comfortably inside square canvas with transparent margins. Restrained realistic hand-painted 3D game art, weathered blue-gray naval steel, crisp metallic highlights, visible bolts and mechanical panels, warm brass accents, lighting upper left. Strong readable silhouette at small size. NO platform underneath, no sea, no text, no numbers, no border, no watermark, no muzzle flash, no drop shadow outside object. Genuine transparent background. Heavy naval howitzer: massive reinforced broad turret housing, ONE very thick short barrel with chunky muzzle brake, hydraulic recoil cylinders, restrained rust-red accent panels. Heavy powerful silhouette.",
+      "file": "weapon-howitzer-v1.png"
+    },
+    {
+      "id": "machinegun",
+      "prompt": "Use case: stylized-concept. Asset type: production transparent PNG sprite for a premium naval defense browser game, also used as armory card illustration. A SINGLE isolated naval weapon turret, precise orthographic TOP DOWN view, barrel points horizontally RIGHT. Rotating bearing center positioned at 35% image width, 50% height; muzzle ends near 92% width. Entire weapon comfortably inside square canvas with transparent margins. Restrained realistic hand-painted 3D game art, weathered blue-gray naval steel, crisp metallic highlights, visible bolts and mechanical panels, warm brass accents, lighting upper left. Strong readable silhouette at small size. NO platform underneath, no sea, no text, no numbers, no border, no watermark, no muzzle flash, no drop shadow outside object. Genuine transparent background. Light naval machine gun mount: ONE slender long machine gun barrel with perforated cooling jacket, small open mechanical mounting, brass ammunition feed box, narrow lightweight silhouette.",
+      "file": "weapon-machinegun-v1.png"
+    },
+    {
+      "id": "twin",
+      "prompt": "Use case: stylized-concept. Asset type: production transparent PNG sprite for a premium naval defense browser game, also used as armory card illustration. A SINGLE isolated naval weapon turret, precise orthographic TOP DOWN view, barrel points horizontally RIGHT. Rotating bearing center positioned at 35% image width, 50% height; muzzle ends near 92% width. Entire weapon comfortably inside square canvas with transparent margins. Restrained realistic hand-painted 3D game art, weathered blue-gray naval steel, crisp metallic highlights, visible bolts and mechanical panels, warm brass accents, lighting upper left. Strong readable silhouette at small size. NO platform underneath, no sea, no text, no numbers, no border, no watermark, no muzzle flash, no drop shadow outside object. Genuine transparent background. Twin naval machine gun mount: TWO parallel slender barrels well separated vertically, compact armored mechanical mounting, two brass ammunition feeds, restrained turquoise markings, symmetrical top-down silhouette.",
+      "file": "weapon-twin-v1.png"
+    },
+    {
+      "id": "rapid",
+      "prompt": "Use case: stylized-concept. Asset type: production transparent PNG sprite for a premium naval defense browser game, also used as armory card illustration. A SINGLE isolated naval weapon turret, precise orthographic TOP DOWN view, barrel points horizontally RIGHT. Rotating bearing center positioned at 35% image width, 50% height; muzzle ends near 92% width. Entire weapon comfortably inside square canvas with transparent margins. Restrained realistic hand-painted 3D game art, weathered blue-gray naval steel, crisp metallic highlights, visible bolts and mechanical panels, warm brass accents, lighting upper left. Strong readable silhouette at small size. NO platform underneath, no sea, no text, no numbers, no border, no watermark, no muzzle flash, no drop shadow outside object. Genuine transparent background. Rapid fire naval rotary autocannon: one SIX-BARREL Gatling assembly seen strictly from above pointing right, long ribbed cylindrical rotary barrel bundle and ring braces, large ammo drum and motor housing, tiny muted violet accents. Compact industrial silhouette.",
+      "file": "weapon-rapid-v1.png"
+    }
+  ]
+}
