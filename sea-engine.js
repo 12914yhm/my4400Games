@@ -3,6 +3,12 @@
   'use strict';
   const W = 960, H = 600, CX = W / 2, CY = H / 2, STEP = 1 / 120, WAVES = 8;
   const HEAT = { perShot: 4.5, cooling: 25, resume: 30 };
+  // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
+  const SIDE_GUN = Object.freeze({ forward: 44, lateral: 34, size: 52 });
+  function secondaryMuzzle(angle, side) {
+    return { x: CX + Math.cos(angle) * SIDE_GUN.forward - Math.sin(angle) * SIDE_GUN.lateral * side,
+      y: CY + Math.sin(angle) * SIDE_GUN.forward + Math.cos(angle) * SIDE_GUN.lateral * side };
+  }
   const weapons = typeof module !== 'undefined' && module.exports ? require('./sea-weapons') : root.SeaWeapons;
   const TYPES = {
     patrol: { hp: 54, speed: 37, radius: 17, reward: 30, damage: 10, interval: 4.2, range: 240 },
@@ -39,7 +45,7 @@
       enemies: [], bullets: [], hostile: [], effects: [], spawnLeft: 0, total: 0, destroyed: 0,
       spawnTimer: 0, elapsed: 0, accumulator: 0, lastReward: 0, damageFlash: 0, message: '', event: 0
     };
-    let serial = 0;
+    let serial = 0, secondarySide = -1;
     const sounds = [];
     function emit(kind) { if (sounds.length < 32) sounds.push(kind); }
     function drainSounds() { return sounds.splice(0); }
@@ -123,16 +129,22 @@
       const cannon = type === 'primary', angle = state.angle;
       if (!cannon && state.overheated) return;
       const weapon = weaponStats(type), speed = weapon.speed;
-      const muzzle = cannon ? 57 : 48;
+      const muzzle = 57;
       const distance = Math.max(65, Math.hypot(state.aim.x - CX, state.aim.y - CY));
       for(let i=0;i<weapon.count;i++){
-        const direction=angle+(i-(weapon.count-1)/2)*weapon.spread;
-        state.bullets.push({ x: CX + Math.cos(direction) * muzzle, y: CY + Math.sin(direction) * muzzle,
+        const spread=(i-(weapon.count-1)/2)*weapon.spread;
+        const origin=cannon ? {x:CX+Math.cos(angle+spread)*muzzle,y:CY+Math.sin(angle+spread)*muzzle}
+          : secondaryMuzzle(angle,weapon.count>1 ? (i%2 ? 1 : -1) : secondarySide);
+        // Converge on the crosshair; keep very close aim points in front of the barrels.
+        const targetDistance=Math.max(100,distance);
+        const direction=cannon ? angle+spread : Math.atan2(CY+Math.sin(angle)*targetDistance-origin.y,CX+Math.cos(angle)*targetDistance-origin.x)+spread;
+        state.bullets.push({ x: origin.x, y: origin.y,
           vx: Math.cos(direction) * speed, vy: Math.sin(direction) * speed, type, weapon:weapon.id,
           damage: weapon.damage, remaining: cannon ? Math.max(8, distance - muzzle) : 1100, radius:weapon.radius });
       }
       if (cannon) { state.cannonCooldown = cannonDelay(); state.recoil = .18; state.event++; emit('cannon'); }
       else {
+        secondarySide *= -1;
         state.gunCooldown = weapon.interval;
         state.gunHeat = Math.min(100, state.gunHeat + weapon.heat); emit('gun');
         if (state.gunHeat >= 100) { state.overheated = true; emit('overheat'); }
@@ -261,6 +273,6 @@
     }
     return { state, setAim, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
   }
-  const api = { create, W, H, CX, CY, TYPES, ITEMS, UPGRADES, WAVES, HEAT, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
+  const api = { create, W, H, CX, CY, TYPES, ITEMS, UPGRADES, WAVES, HEAT, SIDE_GUN, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

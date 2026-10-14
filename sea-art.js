@@ -79,11 +79,18 @@
     if (!textures.base || !primary) return false;
     ctx.save(); ctx.translate(x, y);
     ctx.drawImage(textures.base, -70, -70, 140, 140);
-    ctx.rotate(angle); ctx.translate(-recoil * 20, 0);
+    ctx.rotate(angle);
+    const { forward, lateral, size } = window.SeaEngine.SIDE_GUN;
+    for (const side of [-1, 1]) {
+      // Twin art contains two barrels; use one half per mount, not two double guns.
+      const twin = loadout.secondary === 'twin', muzzleY = twin ? .38 : .505;
+      if (secondary) ctx.drawImage(secondary, 0, 0, secondary.width, secondary.height * (twin ? .5 : 1),
+        forward - size * .98, side * lateral - size * muzzleY, size, size * (twin ? .5 : 1));
+      else { ctx.fillStyle = '#415d60'; ctx.fillRect(forward - 40, side * lateral - 4, 40, 8); }
+    }
+    ctx.translate(-recoil * 20, 0);
     // Bearing is left of center; muzzle aligns with the simulation's 57 px origin.
     ctx.drawImage(primary, -33.6, -47.04, 96, 96);
-    // Smaller coaxial mount sits on the near edge of the rotating armored housing.
-    if (secondary) ctx.drawImage(secondary, -15, -5, 68, 68);
     ctx.restore(); return true;
   }
   function explosion(ctx, effect) {

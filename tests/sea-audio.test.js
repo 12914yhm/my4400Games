@@ -3,7 +3,7 @@ const source=fs.readFileSync(require('node:path').join(__dirname,'../sea-audio.j
 function fixture(supported=true){
   const contexts=[],nodes=[],saved=new Map();
   const param=()=>({value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}});
-  function node(){const n={gain:param(),frequency:param(),threshold:param(),ratio:param(),connect(){},disconnect(){},start(){n.started=true;},stop(time){if(time===undefined){n.stopped=true;n.onended?.();}}};nodes.push(n);return n;}
+  function node(){const n={gain:param(),frequency:param(),threshold:param(),ratio:param(),connect(){},disconnect(){},start(time){n.started=true;n.startTime=time;},stop(time){if(time===undefined){n.stopped=true;n.onended?.();}else n.stopTime=time;}};nodes.push(n);return n;}
   class Audio{constructor(){this.currentTime=0;this.sampleRate=8000;this.state='suspended';contexts.push(this);}createGain(){return node();}createDynamicsCompressor(){return node();}createBiquadFilter(){return node();}createOscillator(){return node();}createBufferSource(){return node();}createBuffer(){return{getChannelData:()=>new Float32Array(8000)};}resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}}
   const scope={window:supported?{AudioContext:Audio}:{},localStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)}};
   vm.runInNewContext(source,scope);return{audio:scope.window.SeaAudio.create(),contexts,nodes,saved};
@@ -25,4 +25,14 @@ test('all effects produce voices, enforce a voice cap, and stop without replayin
 });
 test('unsupported browsers keep gameplay usable with no audio exceptions',()=>{
   const f=fixture(false);f.audio.unlock();f.audio.play('cannon');f.audio.stop();f.audio.setEnabled(false);assert.equal(f.audio.enabled,false);
+});
+
+test('cannon layers include a short report and delayed tail, all cancelled on pause',()=>{
+  const f=fixture();f.audio.unlock();f.audio.play('cannon');
+  const voices=f.nodes.filter(n=>n.started);
+  assert.equal(voices.length,5);
+  assert.ok(voices.some(n=>n.stopTime-n.startTime<.1));
+  assert.ok(voices.some(n=>n.startTime>0 && n.stopTime>.9));
+  f.audio.play('cannon');assert.equal(f.nodes.filter(n=>n.started).length,5);
+  f.audio.stop();assert.ok(voices.every(n=>n.stopped));
 });

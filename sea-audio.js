@@ -58,10 +58,17 @@
         if (kind === 'gun') {
           voice({ noiseVoice:true, duration:.075, volume:.27, cutoff:3800 });
           voice({ frequency:180, end:65, duration:.065, volume:.13, type:'square' });
-        } else if (kind === 'cannon' || kind === 'explosion' || kind === 'hit') {
-          const cannon = kind === 'cannon';
-          voice({ noiseVoice:true, duration:cannon ? .5 : .65, volume:cannon ? .55 : .42, cutoff:cannon ? 2300 : 1200 });
-          voice({ frequency:cannon?120:75, end:25, duration:.45, volume:.5, type:'sine' });
+        } else if (kind === 'cannon') {
+          // Sharp report, barrel body, bass punch, then a softer distant rumble.
+          // Midrange body keeps the shot audible on small phone speakers.
+          voice({ noiseVoice:true, duration:.075, volume:.38, cutoff:5200 });
+          voice({ noiseVoice:true, duration:.36, volume:.36, cutoff:1800 });
+          voice({ frequency:155, end:42, duration:.42, volume:.48, type:'sine' });
+          voice({ frequency:230, end:75, duration:.18, volume:.12, type:'triangle' });
+          voice({ noiseVoice:true, duration:.85, delay:.09, volume:.2, cutoff:650 });
+        } else if (kind === 'explosion' || kind === 'hit') {
+          voice({ noiseVoice:true, duration:.65, volume:.42, cutoff:1200 });
+          voice({ frequency:75, end:25, duration:.45, volume:.5, type:'sine' });
         } else if (kind === 'overheat') {
           [0,.16,.32].forEach(delay => voice({ frequency:640, end:400, duration:.12, volume:.17, delay, type:'sawtooth' }));
           voice({ noiseVoice:true, duration:.7, volume:.12, cutoff:2200 });

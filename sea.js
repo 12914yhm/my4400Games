@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { W, H, CX, CY, WAVES, ITEMS, UPGRADES, WEAPONS, unlockWave } = window.SeaEngine;
+  const { W, H, CX, CY, WAVES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, unlockWave } = window.SeaEngine;
   const art = window.SeaArt;
   const audio = window.SeaAudio.create();
   const dialog = document.createElement('dialog');
@@ -338,7 +338,9 @@
     ctx.save();ctx.translate(CX,CY);ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4+Math.PI/8;ctx.lineTo(Math.cos(a)*50,Math.sin(a)*50);}ctx.closePath();ctx.fillStyle='#737e73';ctx.fill();ctx.strokeStyle='#d1cab0';ctx.lineWidth=3;ctx.stroke();
     ctx.strokeStyle='#465f5b';ctx.lineWidth=2;for(let i=0;i<8;i++){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*35,Math.sin(a)*35);ctx.lineTo(Math.cos(a)*48,Math.sin(a)*48);ctx.stroke();}
     circle(0,0,32,'#334f4f','#a0ad94',3);circle(0,0,25,'#8a9680');
-    ctx.rotate(s.angle);ctx.translate(-s.recoil*20,0);rect(-19,-18,40,36,8,'#a7af98');rect(-13,-13,22,26,4,'#7b8d80');rect(7,-8,46,16,3,'#344f51');rect(17,-6,31,4,1,'#9ba995');rect(48,-10,10,20,2,'#4b6160');rect(-2,18,40,5,2,'#30484b');circle(-9,0,6,'#596f63');
+    ctx.rotate(s.angle);
+    for(const side of [-1,1]){const y=side*SIDE_GUN.lateral;rect(-9,y-9,25,18,4,'#7b8d80');rect(9,y-3,SIDE_GUN.forward-9,6,1,'#30484b');}
+    ctx.translate(-s.recoil*20,0);rect(-19,-18,40,36,8,'#a7af98');rect(-13,-13,22,26,4,'#7b8d80');rect(7,-8,46,16,3,'#344f51');rect(17,-6,31,4,1,'#9ba995');rect(48,-10,10,20,2,'#4b6160');circle(-9,0,6,'#596f63');
     ctx.restore();
     }
     if(s.recoil>.11){ctx.save();ctx.translate(CX,CY);ctx.rotate(s.angle);ctx.fillStyle='#ffdda4';ctx.beginPath();ctx.moveTo(57,-7);ctx.lineTo(84,0);ctx.lineTo(57,7);ctx.fill();ctx.restore();}

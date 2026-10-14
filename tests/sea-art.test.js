@@ -17,7 +17,7 @@ function fixture() {
     constructor() { this.width = 1254; this.height = 1254; requests.push(this); }
     set src(url) { this.url = url; }
   }
-  const scope = { window: {}, Image, document: { createElement() { return { getContext: context }; } },
+  const scope = { window: { SeaEngine: require('../sea-engine') }, Image, document: { createElement() { return { getContext: context }; } },
     setTimeout(fn) { timers.set(++serial, fn); return serial; }, clearTimeout(id) { timers.delete(id); } };
   vm.runInNewContext(source, scope);
   return { art: scope.window.SeaArt, requests, timers, draws, context };
@@ -68,8 +68,15 @@ test('equipped primary and secondary choose distinct textures; missing new art r
   for (const [primary,secondary] of [['cannon','machinegun'],['spread','twin'],['howitzer','rapid']]) {
     f.draws.length = 0;
     assert.equal(f.art.battery(f.context(),480,300,.5,.1,{primary,secondary}),true);
-    assert.equal(f.draws.length,3);
-    selected.push(f.draws[1][0],f.draws[2][0]);
+    assert.equal(f.draws.length,4);
+    selected.push(f.draws[1][0],f.draws[3][0]);
+    assert.equal(f.draws[1][0],f.draws[2][0]);
+    const {forward,lateral,size}=require('../sea-engine').SIDE_GUN;
+    for (const [index,side] of [[1,-1],[2,1]]) {
+      const draw=f.draws[index], muzzleY=secondary==='twin' ? .38 : .505;
+      assert.ok(Math.abs(draw[5]+size*.98-forward)<1e-9);
+      assert.ok(Math.abs(draw[6]+size*muzzleY-side*lateral)<1e-9);
+    }
   }
   assert.equal(new Set(selected).size,6);
   const failed = fixture(), loading = failed.art.load();

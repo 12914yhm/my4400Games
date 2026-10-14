@@ -11,6 +11,35 @@ function weaponFixture() {
   const game = fixture(); game.state.enemies[0].hp = game.state.enemies[0].maxHp = 100000;
   game.setAim(CX, 0); game.drainSounds(); return game;
 }
+
+test('side guns alternate physical muzzles at every turret angle and converge on the crosshair', () => {
+  const { secondaryMuzzle } = require('../sea-engine');
+  for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2, .73]) {
+    const game = fixture(), x = CX + Math.cos(angle) * 220, y = CY + Math.sin(angle) * 220;
+    game.setAim(x, y);
+    for (const side of [-1, 1, -1, 1]) {
+      game.state.gunCooldown = 0; game.trigger('secondary', true); game.release();
+      const bullet = game.state.bullets.at(-1), muzzle = secondaryMuzzle(angle, side);
+      assert.ok(Math.hypot(bullet.x-muzzle.x,bullet.y-muzzle.y)<1e-9);
+      assert.ok(Math.abs((x-bullet.x)*bullet.vy-(y-bullet.y)*bullet.vx)<1e-7);
+      assert.ok((x-bullet.x)*bullet.vx+(y-bullet.y)*bullet.vy>0);
+    }
+    game.trigger('primary',true);
+    const shell=game.state.bullets.at(-1);
+    assert.ok(Math.hypot(shell.x-CX-Math.cos(angle)*57,shell.y-CY-Math.sin(angle)*57)<1e-9);
+  }
+});
+
+test('twin fires one bullet per side; aiming at the base never fires backwards', () => {
+  const { secondaryMuzzle } = require('../sea-engine');
+  const game=fixture();game.state.loadout.secondary='twin';game.setAim(CX,CY);
+  game.trigger('secondary',true);
+  assert.equal(game.state.bullets.length,2);
+  game.state.bullets.forEach((bullet,index)=>{
+    const muzzle=secondaryMuzzle(0,index ? 1 : -1);
+    assert.equal(bullet.x,muzzle.x);assert.equal(bullet.y,muzzle.y);assert.ok(bullet.vx>0);
+  });
+});
 test('sustained fire overheats, cannot be bypassed by tapping, and recovers only after cooling', () => {
   const game = weaponFixture(); game.trigger('secondary', true);
   for(let i=0;i<600&&!game.state.overheated;i++) game.step(1/120);
