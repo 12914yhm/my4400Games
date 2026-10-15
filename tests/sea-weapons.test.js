@@ -22,7 +22,11 @@ test('all six weapons have real shot patterns, damage, speed and resource costs'
     g.start();g.setAim(820,300);g.trigger(slot,true);
     assert.equal(g.state.bullets.length,weapon.count,weapon.id);
     for(const b of g.state.bullets){assert.equal(b.weapon,weapon.id);assert.equal(b.damage,weapon.damage);assert.ok(Math.abs(Math.hypot(b.vx,b.vy)-weapon.speed)<.001);}
-    if(weapon.count>1)assert.notEqual(g.state.bullets[0].vy,g.state.bullets.at(-1).vy);
+    if(weapon.count>1 && slot==='primary')assert.notEqual(g.state.bullets[0].vy,g.state.bullets.at(-1).vy);
+    if(weapon.count>1 && slot==='secondary'){
+      assert.equal(g.state.bullets[0].vy,g.state.bullets.at(-1).vy);
+      assert.notEqual(g.state.bullets[0].y,g.state.bullets.at(-1).y);
+    }
     if(slot==='primary'){assert.equal(g.state.cannonCooldown,weapon.interval);assert.equal(g.state.bullets[0].radius,weapon.radius);}
     else {assert.equal(g.state.gunHeat,weapon.heat);assert.equal(g.state.gunCooldown,weapon.interval);}
     assert.equal(g.snapshot().state.bullets[0].weapon,weapon.id);

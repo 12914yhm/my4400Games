@@ -135,9 +135,8 @@
         const spread=(i-(weapon.count-1)/2)*weapon.spread;
         const origin=cannon ? {x:CX+Math.cos(angle+spread)*muzzle,y:CY+Math.sin(angle+spread)*muzzle}
           : secondaryMuzzle(angle,weapon.count>1 ? (i%2 ? 1 : -1) : secondarySide);
-        // Converge on the crosshair; keep very close aim points in front of the barrels.
-        const targetDistance=Math.max(100,distance);
-        const direction=cannon ? angle+spread : Math.atan2(CY+Math.sin(angle)*targetDistance-origin.y,CX+Math.cos(angle)*targetDistance-origin.x)+spread;
+        // Side guns fire parallel to their barrels; the pointer only rotates the turret.
+        const direction=cannon ? angle+spread : angle;
         state.bullets.push({ x: origin.x, y: origin.y,
           vx: Math.cos(direction) * speed, vy: Math.sin(direction) * speed, type, weapon:weapon.id,
           damage: weapon.damage, remaining: cannon ? Math.max(8, distance - muzzle) : 1100, radius:weapon.radius });
