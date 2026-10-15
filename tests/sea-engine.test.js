@@ -155,6 +155,32 @@ test('cannon splash damages nearby ships', () => {
   game.state.enemies = [a,b]; game.setAim(CX + 160, CY); game.trigger('primary', true); advance(game, .6);
   assert.ok(a.hp < a.maxHp); assert.ok(b.hp < b.maxHp);
 });
+
+test('each hull class produces a matching sinking sequence and sound without changing rewards',()=>{
+  const classes={patrol:'small',fast:'small',raider:'small',armored:'medium',missile:'medium',tender:'medium',guardian:'shield',submarine:'sub',boss:'large',dreadnought:'large'};
+  for(const [type,hull] of Object.entries(classes)){
+    const game=fixture(),target=enemy(type,CX+160,CY);target.hp=25;target.maxHp=TYPES[type].hp;
+    game.state.enemies=[target];game.setAim(CX+160,CY);game.drainSounds();game.trigger('primary',true);game.release();advance(game,.6);
+    assert.equal(game.state.kills,1,type);assert.equal(game.state.credits,100+target.reward+130,type);
+    const sink=game.state.effects.find(e=>e.kind==='ship-sink');
+    assert.equal(sink?.type,type);assert.equal(sink.hull,hull);assert.equal(sink.size,target.radius);
+    assert.ok(game.drainSounds().includes('ship-sink:'+hull),type);
+  }
+});
+
+test('surviving hulls spark while shields absorb damage with a distinct effect',()=>{
+  const game=fixture(),target=enemy('guardian',CX+160,CY);target.barrier=100;game.state.enemies=[target];game.setAim(CX+160,CY);
+  game.trigger('primary',true);game.release();advance(game,.3);
+  assert.equal(game.state.enemies[0].hp,TYPES.guardian.hp);
+  assert.equal(game.state.enemies[0].barrier,20);
+  assert.ok(game.state.effects.some(e=>e.kind==='hull-hit'&&e.hull==='shield'));
+  assert.ok(game.drainSounds().includes('ship-hit:shield'));
+  const armored=fixture();armored.state.enemies=[enemy('armored',CX+160,CY-34)];
+  armored.setAim(CX+160,CY);armored.drainSounds();armored.trigger('secondary',true);armored.release();advance(armored,.25);
+  assert.ok(armored.state.enemies[0].hp<TYPES.armored.hp);
+  assert.ok(armored.state.effects.some(e=>e.kind==='hull-hit'&&e.type==='armored'&&e.hull==='medium'));
+  assert.ok(armored.drainSounds().includes('ship-hit:medium'));
+});
 test('pause freezes projectiles and timers and clears held triggers', () => {
   const game = fixture(); game.trigger('primary', true); advance(game, .1); game.pause(true);
   const before = JSON.stringify(game.state); advance(game, 3); assert.equal(JSON.stringify(game.state), before);

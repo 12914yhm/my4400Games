@@ -21,7 +21,7 @@ function fixture(user = null) {
   function element(selector) {if(!elements.has(selector))elements.set(selector,new Element());return elements.get(selector);}
   // Use the older Canvas API deliberately: a catch-all mock masks unsupported calls.
   const context = { globalAlpha: 1 };
-  for (const name of ['beginPath','closePath','clearRect','fillRect','strokeRect','save','restore','translate','rotate','setTransform','setLineDash','arc','ellipse','moveTo','lineTo','quadraticCurveTo','fill','stroke','fillText']) {
+  for (const name of ['beginPath','closePath','clearRect','fillRect','strokeRect','save','restore','translate','rotate','scale','setTransform','setLineDash','arc','ellipse','moveTo','lineTo','quadraticCurveTo','fill','stroke','fillText']) {
     context[name] = (...args) => { for (const n of args) if (typeof n === 'number') assert.ok(Number.isFinite(n), name); drawings.push(name); if(name==='ellipse'&&args[0]<-10&&args[1]===0)wakeDrawings.push({x:args[0],rx:args[2],ry:args[3]}); };
   }
   for (const name of ['createRadialGradient','createLinearGradient']) context[name] = () => ({ addColorStop() {} });

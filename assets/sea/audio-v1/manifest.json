@@ -94,6 +94,96 @@
       "speed": 0.88,
       "sha256": "8ef97edec150d1b6753c7546086e0159918ffbd6e254393fe4772edd26fa76c5",
       "bytes": 41317
+    },
+    "hull-small": {
+      "file": "hull-small.mp3",
+      "slot": 1.6,
+      "count": 1,
+      "sourceFiles": [
+        "ExplosionMetal.wav",
+        "Splash.wav"
+      ],
+      "sha256": "842acf4cde168ec2094bc013d1a09b267087efe5e859685520a244b3841e8193",
+      "bytes": 33480
+    },
+    "hull-medium": {
+      "file": "hull-medium.mp3",
+      "slot": 2.1,
+      "count": 1,
+      "sourceFiles": [
+        "ExplosionMetal.wav",
+        "WaterSurfaceExplosion08.wav"
+      ],
+      "sha256": "489bce7831cd211899a91afbda80fdb090a16d90a1617446f4e628440e9f9d59",
+      "bytes": 43407
+    },
+    "hull-large": {
+      "file": "hull-large.mp3",
+      "slot": 2.5,
+      "count": 1,
+      "sourceFiles": [
+        "ExplosionMetal.wav",
+        "WaterSurfaceExplosion07.wav"
+      ],
+      "sha256": "95ff69ba4262805a0bd7e2cb5bffd412feee937a09149bb99797d23deb3b8c3d",
+      "bytes": 51244
+    },
+    "hull-sub": {
+      "file": "hull-sub.mp3",
+      "slot": 2.4,
+      "count": 1,
+      "sourceFiles": [
+        "SplashGverb.wav",
+        "WaterSurfaceExplosion06.wav"
+      ],
+      "sha256": "22f351063b8036f6158095b4cd5b5319950e42eb3f4d8a13d8934336b154015e",
+      "bytes": 49154
+    },
+    "sink-small": {
+      "file": "sink-small.mp3",
+      "slot": 2.6,
+      "count": 1,
+      "sourceFiles": [
+        "WaterSurfaceExplosion06.wav",
+        "Splash.wav"
+      ],
+      "sha256": "a640e475e3580358e02d4c1f964a7f3b1dd7f57a57711b4880435d405d48326e",
+      "bytes": 53333
+    },
+    "sink-medium": {
+      "file": "sink-medium.mp3",
+      "slot": 2.9,
+      "count": 1,
+      "sourceFiles": [
+        "WaterSurfaceExplosion04.wav",
+        "ExplosionMetal.wav",
+        "SplashGverb.wav"
+      ],
+      "sha256": "cff1e7932e7af45b6a6d25b05262474d674d10104989bead8070ea3c6a02eeb5",
+      "bytes": 59603
+    },
+    "sink-large": {
+      "file": "sink-large.mp3",
+      "slot": 3.5,
+      "count": 1,
+      "sourceFiles": [
+        "WaterSurfaceExplosion02.wav",
+        "ExplosionMetal.wav",
+        "SplashGverb.wav"
+      ],
+      "sha256": "ebd57dbf054b9963b8cc7244bc1b07f50a8cef56d21d02f3ec7210208e7142f6",
+      "bytes": 71097
+    },
+    "sink-sub": {
+      "file": "sink-sub.mp3",
+      "slot": 3.2,
+      "count": 1,
+      "sourceFiles": [
+        "SplashGverb.wav",
+        "WaterSurfaceExplosion06.wav"
+      ],
+      "sha256": "7796cb4e501663beb8c9c2e81febf2eee4b62729e7960710e1f3562d82b28586",
+      "bytes": 65350
     }
   }
 }

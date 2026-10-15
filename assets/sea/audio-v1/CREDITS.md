@@ -28,4 +28,11 @@
 - 采用 2014 年更新版 ExplosionMetal.wav；原包说明明确其源为 https://www.freesound.org/people/qubodup/sounds/67474/，替换了旧版有争议的素材。
 - 降速、轻微压缩及淡出，用于击沉与基地受击。
 
+## 舰船受击与沉没补充素材
+
+- 继续使用上方同一 CC0 v2 素材包的 `ExplosionMetal.wav`、`Splash.wav`、`SplashGverb.wav` 与 `WaterSurfaceExplosion02/04/06/07/08.wav`。
+- `hull-small/medium/large/sub` 分别对应小艇、普通舰船、重舰和潜艇的受击声；`sink-small/medium/large/sub` 对应其沉没声。护盾受击采用程序合成，护盾舰沉没使用中型舰船录音。
+- 各音轨经过剪辑、轻度变速和分层混音，保留水花与爆炸的自然余韵。可用 `build-impacts.py` 从上述原素材重新生成；文件摘要与来源见 `manifest.json`。
+- 炮弹飞行的风切声由 Web Audio 根据实际在场炮弹生成，弹体消失时淡出，暂停或静音时立即停止。这一声效是程序设计音效，并非实录。
+
 各文件剪辑时间、变速和摘要见仓库 manifest.json，可用 build.py 从原素材重建。激光、电弧等虚构武器仍为程序设计音效，并非实录。

@@ -1,7 +1,9 @@
 (function () {
   'use strict';
   const durations = {machinegun:.28,twin:.36,rapid:.24,cannon:1.35,spread:1.1,howitzer:1.85,laser:1.4,railgun:3.2,plasma:3.4,cryo:.9,tesla:1.4};
-  const recordings={machinegun:{slot:2.4,count:3},twin:{slot:2.4,count:3},rapid:{slot:2.4,count:3},spread:{slot:3.2,count:2},cannon:{slot:5.4,count:2},howitzer:{slot:6,count:2},impact:{slot:2,count:1}};
+  const recordings={machinegun:{slot:2.4,count:3},twin:{slot:2.4,count:3},rapid:{slot:2.4,count:3},spread:{slot:3.2,count:2},cannon:{slot:5.4,count:2},howitzer:{slot:6,count:2},impact:{slot:2,count:1},
+    'hull-small':{slot:1.6,count:1},'hull-medium':{slot:2.1,count:1},'hull-large':{slot:2.5,count:1},'hull-sub':{slot:2.4,count:1},
+    'sink-small':{slot:2.6,count:1},'sink-medium':{slot:2.9,count:1},'sink-large':{slot:3.5,count:1},'sink-sub':{slot:3.2,count:1}};
   const MAX_VOICES=64;
   // Original synthesized samples: pressure bursts, damped metal and outdoor reflections.
   // Energy weapons are fictional; avoid musical pitch sweeps and use physical transients.
@@ -83,7 +85,7 @@
   // Procedural effects need no downloads; audio is unlocked only by a user gesture.
   function create() {
     let context, master, noise, enabled = true, active = false;
-    const voices = new Set(), last = new Map(), samples = new Map(), variations = new Map();
+    const voices = new Set(), last = new Map(), samples = new Map(), variations = new Map(), flights = new Map();
     const encoded=new Map(), decoded=new Map(), decoding=new Map();
     let loading;
     function load() {
@@ -120,7 +122,7 @@
     function stop() {
       active = false; last.clear();
       for (const source of voices) { try { source.stop(); } catch {} }
-      voices.clear();
+      voices.clear(); flights.clear();
       if (context && context.state === 'running') context.suspend().catch(() => {});
     }
     function shot(id) {
@@ -142,7 +144,7 @@
       variations.set('recorded:'+id,index+1);
       const source=context.createBufferSource(),gain=context.createGain(),now=context.currentTime;
       const offset=index*spec.slot,duration=Math.min(spec.slot,buffer.duration-offset);
-      source.buffer=buffer;gain.gain.value=id==='impact'?(hit?.35:.5):['machinegun','twin','rapid'].includes(id)?.68:.95;
+      source.buffer=buffer;gain.gain.value=id==='impact'?(hit?.35:.5):id.startsWith('hull-')?.3:id.startsWith('sink-')?.65:['machinegun','twin','rapid'].includes(id)?.68:.95;
       source.connect(gain);gain.connect(master);voices.add(source);
       source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};
       // Release keeps the recorded decay; only pause, mute or closing cancels it.
@@ -168,17 +170,54 @@
       source.onended = () => { voices.delete(source); source.disconnect(); gain.disconnect(); filter?.disconnect(); };
       source.start(now); source.stop(now + duration + .01);
     }
+    // Each physical shell owns a quiet wind voice. Removing the shell fades the voice;
+    // held fire cannot accumulate permanent loops, and pause stops all voices at once.
+    function syncFlight(bullets) {
+      if(!enabled||!active||context?.state!=='running')return;
+      const flying=new Set(bullets.filter(b=>b.type==='primary'&&b.vx*b.vx+b.vy*b.vy>0&&!b.dead));
+      for(const [bullet,flight] of flights)if(!flying.has(bullet)){
+        const now=context.currentTime;
+        flight.gain.gain.setValueAtTime(Math.max(.0001,flight.volume),now);
+        flight.gain.gain.exponentialRampToValueAtTime(.0001,now+.09);
+        try{flight.source.stop(now+.1);}catch{}
+        flights.delete(bullet);
+      }
+      for(const bullet of flying){
+        let flight=flights.get(bullet);
+        if(!flight){
+          if(voices.size>=MAX_VOICES)continue;
+          const source=context.createBufferSource(),filter=context.createBiquadFilter(),gain=context.createGain();
+          source.buffer=noise;source.loop=true;filter.type='bandpass';
+          filter.frequency.value=bullet.weapon==='howitzer'?760:bullet.weapon==='plasma'?980:1450;
+          source.connect(filter);filter.connect(gain);gain.connect(master);
+          flight={source,filter,gain,initial:Math.max(1,bullet.remaining),volume:bullet.weapon==='howitzer'?.16:bullet.weapon==='plasma'?.11:.105};
+          gain.gain.setValueAtTime(.0001,context.currentTime);
+          source.onended=()=>{voices.delete(source);source.disconnect();filter.disconnect();gain.disconnect();};
+          voices.add(source);flights.set(bullet,flight);source.start(context.currentTime);
+        }
+        const progress=Math.max(0,Math.min(1,1-bullet.remaining/flight.initial));
+        const level=flight.volume*(.4+.6*Math.sin(Math.PI*progress));
+        flight.gain.gain.linearRampToValueAtTime(Math.max(.0001,level),context.currentTime+.035);
+      }
+    }
     function play(kind) {
       if (!enabled || !active || context?.state !== 'running') return;
       const aliases={gun:'machinegun',cannon:'cannon',beam:'laser',pierce:'railgun',chain:'tesla',plasma:'plasma',cryo:'cryo'};
       const weapon=kind.startsWith('weapon:')?kind.slice(7):aliases[kind];
       if(weapon&&!durations[weapon])return;
-      const now = context.currentTime, gap = weapon ? .025 : kind === 'explosion' ? .07 : .15;
+      const now = context.currentTime, gap = weapon ? .025 : kind.startsWith('ship-hit:') ? .09 : kind === 'explosion' ? .07 : .15;
       if (now - (last.get(kind) ?? -Infinity) < gap) return;
       last.set(kind, now);
       try {
         if (weapon) {
           if(!recorded(weapon))shot(weapon);
+        } else if(kind.startsWith('ship-hit:')||kind.startsWith('ship-sink:')){
+          const sinking=kind.startsWith('ship-sink:'),hull=kind.split(':')[1];
+          const id=sinking?'sink-'+(hull==='shield'?'medium':hull):'hull-'+hull;
+          if(recorded(id))return;
+          const heavy=hull==='large'||hull==='medium',sub=hull==='sub',shield=hull==='shield';
+          voice({noiseVoice:true,duration:sinking?(heavy?1.4:1):.26,volume:shield?.17:heavy?.32:.2,cutoff:shield?4500:sub?800:heavy?1500:2700});
+          if(sinking||heavy)voice({frequency:shield?460:sub?65:heavy?88:120,end:shield?240:sub?30:35,duration:sinking?1:.36,volume:heavy?.3:.14,type:'sine'});
         } else if (kind === 'explosion' || kind === 'hit') {
           if(recorded('impact',kind==='hit'))return;
           voice({ noiseVoice:true, duration:.65, volume:.42, cutoff:1200 });
@@ -200,7 +239,7 @@
       if (enabled) unlock(); else stop();
     }
     void load(); // Fetch early; decode after a gesture, without replaying missed shots.
-    return { unlock, stop, play, setEnabled, load, get enabled() { return enabled; } };
+    return { unlock, stop, play, syncFlight, setEnabled, load, get enabled() { return enabled; } };
   }
   window.SeaAudio = { create };
 })();

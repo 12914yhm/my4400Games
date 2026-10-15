@@ -7,6 +7,8 @@
   const HEAT = { perShot: 4.5, cooling: 25, resume: 30 };
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
   const SIDE_GUN = Object.freeze({ forward: 44, lateral: 34, size: 52 });
+  const HULL_CLASS = Object.freeze({patrol:'small',fast:'small',raider:'small',submarine:'sub',
+    armored:'medium',missile:'medium',guardian:'shield',tender:'medium',boss:'large',dreadnought:'large'});
   // Pixels / seconds: a quick kick followed by a slower spring return.
   const RECOIL = Object.freeze(Object.fromEntries(Object.entries({
     cannon: [12,.32,.028], spread: [14,.30,.025], howitzer: [20,.44,.04],
@@ -99,17 +101,37 @@
       if(state.wave>=WAVES)return false;
       state.wave++; beginWave(); return true;
     }
-    function effect(x, y, kind, size = 25) {
-      state.effects.push({ x, y, kind, size, age: 0, duration: kind === 'airstrike' ? 1 : .6, seed: random() * 6 });
+    function effect(x, y, kind, size = 25, detail = {}) {
+      const duration = kind === 'airstrike' ? 1 : kind === 'ship-sink' ?
+        ({small:1.25,medium:1.8,large:2.8,sub:1.7,shield:1.9})[detail.hull] :
+        kind === 'hull-hit' ? .38 : .6;
+      if (state.effects.length >= 180) state.effects.shift();
+      const visualOnly=kind==='hull-hit'||kind==='ship-sink'&&detail.hull!=='sub';
+      const seed=visualOnly?((x*37+y*91+state.elapsed*17)%6+6)%6:random()*6;
+      state.effects.push({ x, y, kind, size, age: 0, duration, seed, ...detail });
     }
     function hitEnemy(enemy, damage, bypassShield = false) {
       if (enemy.hp <= 0) return;
       if(!bypassShield && enemy.barrier>0){const absorbed=Math.min(enemy.barrier,damage);enemy.barrier-=absorbed;damage-=absorbed;}
+      if (damage <= 0) {
+        if (state.elapsed - (enemy.lastFeedback ?? -Infinity) >= .12) {
+          effect(enemy.x,enemy.y,'hull-hit',enemy.radius,{hull:'shield',type:enemy.type,angle:enemy.angle});
+          emit('ship-hit:shield');enemy.lastFeedback=state.elapsed;
+        }
+        return;
+      }
       enemy.hp -= damage; enemy.flash = .09;
+      const hull=HULL_CLASS[enemy.type], sinking=enemy.hp<=0;
+      if (sinking || state.elapsed - (enemy.lastFeedback ?? -Infinity) >= .12) {
+        effect(enemy.x,enemy.y,'hull-hit',enemy.radius,{hull,type:enemy.type,angle:enemy.angle});
+        if (!sinking) emit('ship-hit:'+hull);
+        enemy.lastFeedback=state.elapsed;
+      }
       if (enemy.hp <= 0) {
         state.credits += enemy.reward; state.score += enemy.reward * 10; state.kills++; state.destroyed++;
-        effect(enemy.x, enemy.y, 'explosion', enemy.radius * 2.2);
-        emit('explosion');
+        effect(enemy.x,enemy.y,'ship-sink',enemy.radius,{hull,type:enemy.type,angle:enemy.angle});
+        if (hull !== 'sub') effect(enemy.x,enemy.y,'explosion',enemy.radius*(hull==='large'?2.8:hull==='small'?.95:1.5));
+        emit('ship-sink:'+hull);
       }
     }
     function hitBase(damage) {

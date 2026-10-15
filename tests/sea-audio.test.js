@@ -88,12 +88,40 @@ test('fast fire retains every shot, reuses three variants, and leaves no voices 
 
 test('recorded banks preload once, decode after unlock and rotate full-tail shot offsets',async()=>{
   const requests=[],network={fetch:async url=>{requests.push(url);return{ok:true,arrayBuffer:async()=>new ArrayBuffer(1)}}};
-  const f=fixture(true,network);await f.audio.load();assert.equal(f.contexts.length,0);assert.equal(requests.length,7);
-  f.audio.unlock();await f.audio.load();await f.audio.load();assert.equal(network.decodes,7);assert.equal(requests.length,7);
+  const f=fixture(true,network);await f.audio.load();assert.equal(f.contexts.length,0);assert.equal(requests.length,15);
+  f.audio.unlock();await f.audio.load();await f.audio.load();assert.equal(network.decodes,15);assert.equal(requests.length,15);
   for(let i=0;i<3;i++){f.contexts[0].currentTime=i*6;f.audio.play('weapon:cannon');}
   const voices=f.nodes.filter(n=>n.started);assert.deepEqual(voices.map(n=>n.startArgs),[[0,5.4],[5.4,5.4],[0,5.4]]);
   assert.ok(voices.every(n=>n.stopTime-n.startTime>5.4));
   f.audio.stop();assert.ok(voices.every(n=>n.stopped));
+});
+
+test('real ship recordings match the shipped manifest and ship classes choose different banks',async()=>{
+  const path=require('node:path'),crypto=require('node:crypto');
+  const manifest=require('../assets/sea/audio-v1/manifest.json');
+  for(const id of ['hull-small','hull-medium','hull-large','hull-sub','sink-small','sink-medium','sink-large','sink-sub']){
+    const bank=manifest.banks[id],bytes=fs.readFileSync(path.join(__dirname,'../assets/sea/audio-v1',bank.file));
+    assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),bank.sha256);
+    assert.equal(bytes.length,bank.bytes);assert.ok(bytes.length>30000);
+  }
+  const network={fetch:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(1)})},f=fixture(true,network);
+  f.audio.unlock();await f.audio.load();
+  for(const kind of ['ship-hit:small','ship-hit:medium','ship-hit:large','ship-hit:sub','ship-sink:small','ship-sink:medium','ship-sink:large','ship-sink:sub']){
+    f.contexts[0].currentTime++;const before=f.nodes.filter(n=>n.started).length;f.audio.play(kind);
+    assert.equal(f.nodes.filter(n=>n.started).length,before+1,kind);
+  }
+});
+
+test('flight wind follows physical cannon shells, fades at impact, and stops on pause',()=>{
+  const f=fixture();f.audio.unlock();const bullet={type:'primary',weapon:'howitzer',vx:400,vy:0,remaining:340};
+  f.audio.syncFlight([{type:'secondary',vx:900,vy:0,remaining:100},bullet]);
+  const flying=f.nodes.filter(n=>n.started&&n.loop);assert.equal(flying.length,1);
+  assert.equal(flying[0].buffer.duration,1);
+  f.audio.syncFlight([bullet]);assert.equal(f.nodes.filter(n=>n.started&&n.loop).length,1);
+  bullet.remaining=150;f.audio.syncFlight([bullet]);f.audio.syncFlight([]);
+  assert.ok(flying[0].stopTime>f.contexts[0].currentTime);
+  f.audio.syncFlight([bullet]);const again=f.nodes.filter(n=>n.started&&n.loop);assert.equal(again.length,2);
+  f.audio.stop();assert.ok(again.every(n=>n.stopped));
 });
 
 test('missing files or decode errors fall back without blocking fire or throwing',async()=>{
