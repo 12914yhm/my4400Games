@@ -1,6 +1,8 @@
 (function () {
   'use strict';
-  const durations = {machinegun:.28,twin:.36,rapid:.24,cannon:1.35,spread:1.1,howitzer:1.85,laser:.55,railgun:1.1,plasma:1.45,cryo:.32,tesla:.48};
+  const durations = {machinegun:.28,twin:.36,rapid:.24,cannon:1.35,spread:1.1,howitzer:1.85,laser:1.4,railgun:3.2,plasma:3.4,cryo:.9,tesla:1.4};
+  const recordings={machinegun:{slot:2.4,count:3},twin:{slot:2.4,count:3},rapid:{slot:2.4,count:3},spread:{slot:3.2,count:2},cannon:{slot:5.4,count:2},howitzer:{slot:6,count:2},impact:{slot:2,count:1}};
+  const MAX_VOICES=64;
   // Original synthesized samples: pressure bursts, damped metal and outdoor reflections.
   // Energy weapons are fictional; avoid musical pitch sweeps and use physical transients.
   function weaponBuffer(context, id, variation) {
@@ -62,9 +64,12 @@
     for(let channel=0;channel<2;channel++){
       const output=buffer.getChannelData(channel);let reflection=0;
       const offset=Math.round((channel?.073:.061)*rate),far=Math.round((channel?.139:.153)*rate);
+      const echoes=['laser','railgun','plasma','cryo','tesla'].includes(id)
+        ? [[.19,.22],[.37,.16],[.61,.11],[.89,.07],[1.21,.04],[1.63,.025]].map(([seconds,gain])=>[Math.round((seconds+channel*.009)*rate),gain]) : [];
       for(let i=0;i<length;i++){
         reflection+=.09*((i>=offset?dry[i-offset]:0)-reflection);
         output[i]=dry[i]+reflection*.15+(i>=far?dry[i-far]*.035:0);
+        for(const [shift,gain] of echoes)if(i>=shift)output[i]+=dry[i-shift]*gain;
         output[i]*=Math.min(1,(length-1-i)/(rate*.02));
         peak=Math.max(peak,Math.abs(output[i]));
       }
@@ -79,6 +84,19 @@
   function create() {
     let context, master, noise, enabled = true, active = false;
     const voices = new Set(), last = new Map(), samples = new Map(), variations = new Map();
+    const encoded=new Map(), decoded=new Map(), decoding=new Map();
+    let loading;
+    function load() {
+      if(typeof fetch!=='function')return Promise.resolve();
+      loading ||= Promise.all(Object.keys(recordings).map(async id=>{
+        try{const response=await fetch('audio/sea/'+id+'.mp3');if(response.ok)encoded.set(id,await response.arrayBuffer());}catch{}
+      }));
+      return loading.then(()=>Promise.all([...encoded].map(async([id,bytes])=>{
+        if(!context||decoded.has(id))return;
+        if(!decoding.has(id))decoding.set(id,context.decodeAudioData(bytes.slice(0)).then(buffer=>{decoded.set(id,buffer);}).catch(()=>{}));
+        await decoding.get(id);
+      })));
+    }
     try { enabled = localStorage.getItem('play-island-sea-sound') !== 'off'; } catch {}
     function unlock() {
       if (!enabled) return;
@@ -95,6 +113,7 @@
           for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
         }
         active = true;
+        void load();
         if (context.state !== 'running') context.resume().catch(() => {});
       } catch { active = false; }
     }
@@ -106,7 +125,7 @@
     }
     function shot(id) {
       // Reserve audibility for the latest shot even during a large explosion barrage.
-      if(voices.size>=32){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}
+      if(voices.size>=MAX_VOICES){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}
       const variation=(variations.get(id)||0)%3;variations.set(id,variation+1);
       const key=id+':'+variation;
       if(!samples.has(key))samples.set(key,weaponBuffer(context,id,variation));
@@ -116,8 +135,21 @@
       source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};
       source.start(context.currentTime);source.stop(context.currentTime+source.buffer.duration+.01);
     }
+    function recorded(id,hit=false) {
+      const buffer=decoded.get(id),spec=recordings[id];if(!buffer||!spec)return false;
+      if(voices.size>=MAX_VOICES){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}
+      const index=(variations.get('recorded:'+id)||0)%spec.count;
+      variations.set('recorded:'+id,index+1);
+      const source=context.createBufferSource(),gain=context.createGain(),now=context.currentTime;
+      const offset=index*spec.slot,duration=Math.min(spec.slot,buffer.duration-offset);
+      source.buffer=buffer;gain.gain.value=id==='impact'?(hit?.35:.5):['machinegun','twin','rapid'].includes(id)?.68:.95;
+      source.connect(gain);gain.connect(master);voices.add(source);
+      source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};
+      // Release keeps the recorded decay; only pause, mute or closing cancels it.
+      source.start(now,offset,duration);source.stop(now+duration+.02);return true;
+    }
     function voice({ frequency = 100, end = 40, duration = .15, volume = .2, delay = 0, type = 'triangle', noiseVoice = false, cutoff = 1200 }) {
-      if (voices.size >= 32) return;
+      if (voices.size >= MAX_VOICES) return;
       const now = context.currentTime + delay, gain = context.createGain();
       const source = noiseVoice ? context.createBufferSource() : context.createOscillator();
       let filter;
@@ -146,8 +178,9 @@
       last.set(kind, now);
       try {
         if (weapon) {
-          shot(weapon);
+          if(!recorded(weapon))shot(weapon);
         } else if (kind === 'explosion' || kind === 'hit') {
+          if(recorded('impact',kind==='hit'))return;
           voice({ noiseVoice:true, duration:.65, volume:.42, cutoff:1200 });
           voice({ frequency:75, end:25, duration:.45, volume:.5, type:'sine' });
         } else if (kind === 'overheat') {
@@ -166,7 +199,8 @@
       try { localStorage.setItem('play-island-sea-sound', enabled ? 'on' : 'off'); } catch {}
       if (enabled) unlock(); else stop();
     }
-    return { unlock, stop, play, setEnabled, get enabled() { return enabled; } };
+    void load(); // Fetch early; decode after a gesture, without replaying missed shots.
+    return { unlock, stop, play, setEnabled, load, get enabled() { return enabled; } };
   }
   window.SeaAudio = { create };
 })();

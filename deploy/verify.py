@@ -18,6 +18,8 @@ def verify(entry):
         assert hashlib.sha256(data).hexdigest() == expected, name + ': checksum mismatch'
         if name.endswith('.png'):
             assert response.headers.get_content_type() == 'image/png', name
+        if name.endswith('.mp3'):
+            assert response.headers.get_content_type() == 'audio/mpeg', name
         if name.endswith('.svg'):
             assert response.headers.get_content_type() == 'image/svg+xml', name
         return {'file': name, 'status': 200, 'bytes': len(data), 'sha256': expected}

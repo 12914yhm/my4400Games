@@ -1,0 +1,99 @@
+{
+  "sampleRate": 44100,
+  "license": "CC0-1.0",
+  "banks": {
+    "machinegun": {
+      "file": "machinegun.mp3",
+      "slot": 2.4,
+      "count": 3,
+      "sourceFile": "firearms/Prepared SFX Library/AK-47/C_28P.wav",
+      "sourceOnsetsSeconds": [
+        0.611167,
+        3.257385,
+        6.020698
+      ],
+      "speed": 1,
+      "sha256": "bdebc450ae4e97a620dc1b5791c1487d9b5e622d5f83e6afb3566fa5e1a1c194",
+      "bytes": 145284
+    },
+    "twin": {
+      "file": "twin.mp3",
+      "slot": 2.4,
+      "count": 3,
+      "sourceFile": "firearms/Prepared SFX Library/Carl Gustav M45/G_31P.wav",
+      "sourceOnsetsSeconds": [
+        0.310292,
+        3.50125,
+        6.72776
+      ],
+      "speed": 0.96,
+      "sha256": "c7b1c2efbdf1e2a842d8332fd0a01c9ab7aaf8d253398cf389c997789af30e61",
+      "bytes": 145284
+    },
+    "rapid": {
+      "file": "rapid.mp3",
+      "slot": 2.4,
+      "count": 3,
+      "sourceFile": "firearms/Prepared SFX Library/PPSh/P_30P.wav",
+      "sourceOnsetsSeconds": [
+        0.968854,
+        4.387208,
+        8.242615
+      ],
+      "speed": 1,
+      "sha256": "f1a034157f71f5f548d2851da4d1fc97f8a18bce7bffea7fc48c53ef7a610eb6",
+      "bytes": 145284
+    },
+    "spread": {
+      "file": "spread.mp3",
+      "slot": 3.2,
+      "count": 2,
+      "sourceFile": "firearms/Prepared SFX Library/Model 12/K_22P.wav",
+      "sourceOnsetsSeconds": [
+        0.842156,
+        7.445448
+      ],
+      "speed": 0.91,
+      "sha256": "96a3ba242e8c935bffaf8f735682c43bdc354c423de486f21eb439025f693061",
+      "bytes": 129088
+    },
+    "cannon": {
+      "file": "cannon.mp3",
+      "slot": 5.4,
+      "count": 2,
+      "sourceFile": "cannon.mp3",
+      "sourceOnsetsSeconds": [
+        0.165146,
+        6.394938
+      ],
+      "speed": 1,
+      "sha256": "4dc7499c61a4005a816bef8d8f225e1e287e206a751df91565eb0e356e5fa0da",
+      "bytes": 217382
+    },
+    "howitzer": {
+      "file": "howitzer.mp3",
+      "slot": 6.0,
+      "count": 2,
+      "sourceFile": "cannon.mp3",
+      "sourceOnsetsSeconds": [
+        0.165146,
+        6.394938
+      ],
+      "speed": 0.86,
+      "sha256": "59e68b56b0c8a7bb9daebc432cca3b588acc43fabbdb57ce22b35a5462546183",
+      "bytes": 241415
+    },
+    "impact": {
+      "file": "impact.mp3",
+      "slot": 2.0,
+      "count": 1,
+      "sourceFile": "naval/qubodup-NavalBattleSoundSet-cc0/ExplosionMetal.wav",
+      "sourceOnsetsSeconds": [
+        0.001882
+      ],
+      "speed": 0.88,
+      "sha256": "8ef97edec150d1b6753c7546086e0159918ffbd6e254393fe4772edd26fa76c5",
+      "bytes": 41317
+    }
+  }
+}
