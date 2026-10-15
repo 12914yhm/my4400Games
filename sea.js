@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { W, H, CX, CY, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, RECOIL, recoilOffset, unlockWave } = window.SeaEngine;
+  const { W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, RECOIL, recoilOffset, unlockWave } = window.SeaEngine;
   const art = window.SeaArt;
   const audio = window.SeaAudio.create();
   const dialog = document.createElement('dialog');
@@ -149,7 +149,7 @@
   function release() { pointer = stickPointer = cannonPointer = null; $('#sea-stick-knob').style.transform='translate(0,0)'; game?.release(); }
   function resize() {
     const scale = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = W * scale; canvas.height = H * scale; ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    canvas.width = VIEW_W * scale; canvas.height = VIEW_H * scale; ctx.setTransform(scale, 0, 0, scale, 0, 0);
   }
   function reset() {
     saveBest(); release(); audio.stop(); game = window.SeaEngine.create(); restartConfirm = false;
@@ -173,6 +173,8 @@
       const maxed = s.upgrades[id] >= item.max, cost = game.price(id);
       return `<button class="sea-shop-card" data-sea-buy="${id}" ${maxed || s.credits < cost ? 'disabled' : ''}><span>${item.name}<small>Lv.${s.upgrades[id]}</small></span><p>${item.description}</p><b>${maxed ? '已满级' : `◈ ${cost}`}</b></button>`;
     }).concat(ITEMS.map((item, i) => `<button class="sea-shop-card consumable" data-sea-buy="${item.id}" ${s.credits < item.price || s.items[i] >= 5 ? 'disabled' : ''}><span>${item.name}<small>持有 ${s.items[i]}/5</small></span><p>${item.description}</p><b>${s.items[i] >= 5 ? '已满库存' : `◈ ${item.price}`}</b></button>`));
+    const repairCost = game.price('fullRepair');
+    cards.push(`<button class="sea-shop-card sea-full-repair" data-sea-buy="fullRepair" ${s.hp >= s.maxHp || s.credits < repairCost ? 'disabled' : ''}><span>全面修复<small>耐久 ${Math.ceil(s.hp)} / ${s.maxHp}</small></span><p>立即将炮台耐久恢复至上限，无需消耗战斗道具。</p><b>${s.hp >= s.maxHp ? '耐久已满' : `◈ ${repairCost}`}</b></button>`);
     return `<div class="sea-shop"><span class="sea-kicker">WAVE ${String(s.wave).padStart(2,'0')} COMPLETE</span><h3>海域肃清，整备再出发。</h3><p class="sea-overlay-copy">奖励 +${s.lastReward} · 自动修复 25 · 资金 <strong>${s.credits}</strong> · 当前耐久 ${Math.ceil(s.hp)}/${s.maxHp}</p><div class="sea-shop-grid">${cards.join('')}</div><button class="sea-primary" data-sea-action="start">开始第 ${s.wave + 1} 波 <span>→</span></button><small class="sea-shop-note">下一关 · ${LEVELS[Math.min(s.wave,WAVES-1)].name}：${LEVELS[Math.min(s.wave,WAVES-1)].hint}</small></div>`;
   }
   function weaponIcon(id) {
@@ -234,7 +236,7 @@
     });
     $('#sea-wave').title=LEVELS[s.wave-1].name;
     text('#sea-wave-label', s.phase === 'playing' ? `第 ${s.wave} 关 · ${LEVELS[s.wave-1].name} · ${s.destroyed} / ${s.total}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : `${LEVELS[s.wave-1].chapter} · ${LEVELS[s.wave-1].name}`);
-    const key = s.phase + ':' + s.paused + ':' + restartConfirm + ':' + art.status + ':' + loadingSave + ':' + loadError;
+    const key = s.phase + ':' + s.paused + ':' + s.difficulty + ':' + restartConfirm + ':' + art.status + ':' + loadingSave + ':' + loadError;
     if (!force && key === overlayKey) return;
     overlayKey = key;
     const overlay = $('.sea-overlay'); overlay.hidden = s.phase === 'playing' && !s.paused && !loadingSave && !loadError;
@@ -253,7 +255,7 @@
     } else if (s.paused) {
       overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">STAND BY</span><h3>战场已暂停</h3><p>${owner ? '账号进度已载入，准备好再继续。' : '喘口气，准备好再继续。'}</p><button class="sea-primary" data-sea-action="start">继续战斗 →</button></div>`;
     } else if (s.phase === 'ready') {
-      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">THE LAST LINE OF DEFENSE</span><div class="sea-intro-emblem">⌖</div><h3>守住这片海</h3><p>击退 ${WAVES} 波敌舰，解锁未来科技武器。</p><div class="sea-intro-instructions"><span><kbd>左键</kbd> 副武器连射</span><span><kbd>空格</kbd> 主炮轰击</span><span><kbd>1–4</kbd> 战术支援</span></div><button class="sea-primary" data-sea-action="start">开始战斗 <span>→</span></button><small>触屏：按住目标射击，下方按钮发射主炮 · 横屏体验更佳</small></div>`;
+      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">THE LAST LINE OF DEFENSE</span><div class="sea-intro-emblem">⌖</div><h3>守住这片海</h3><p>击退 ${WAVES} 波敌舰，解锁未来科技武器。</p><div class="sea-difficulty" role="group" aria-label="选择游戏难度"><span>选择难度</span><div>${Object.entries(DIFFICULTIES).map(([id,mode])=>`<button data-sea-difficulty="${id}" aria-pressed="${s.difficulty===id}">${mode.name}</button>`).join('')}</div><small>${s.difficulty==='low'?'敌舰较弱、来得更慢，适合熟悉操作。':s.difficulty==='high'?'敌舰更强、数量更多，适合挑战。':'标准难度，敌舰分批来袭。'}</small></div><div class="sea-intro-instructions"><span><kbd>左键</kbd> 副武器连射</span><span><kbd>空格</kbd> 主炮轰击</span><span><kbd>1–4</kbd> 战术支援</span></div><button class="sea-primary" data-sea-action="start">开始战斗 <span>→</span></button><small>触屏：按住目标射击，下方按钮发射主炮 · 横屏体验更佳</small></div>`;
     } else if (s.phase === 'shop') overlay.innerHTML = shopMarkup();
     else {
       const won = s.phase === 'victory';
@@ -392,9 +394,13 @@
   }
   function draw() {
     const s=game.state,t=s.elapsed;
-    ctx.clearRect(0,0,W,H);
-    if (!art.ocean(ctx,W,H)) {
-    const ocean=ctx.createLinearGradient(0,0,W,H);ocean.addColorStop(0,'#34636d');ocean.addColorStop(.5,'#25545f');ocean.addColorStop(1,'#193f50');ctx.fillStyle=ocean;ctx.fillRect(0,0,W,H);
+    ctx.clearRect(0,0,VIEW_W,VIEW_H);
+    ctx.save();ctx.translate(VIEW_PAD_X,VIEW_PAD_Y);
+    ctx.save();ctx.translate(-VIEW_PAD_X,-VIEW_PAD_Y);
+    const oceanReady=art.ocean(ctx,VIEW_W,VIEW_H);
+    ctx.restore();
+    if (!oceanReady) {
+    const ocean=ctx.createLinearGradient(-VIEW_PAD_X,-VIEW_PAD_Y,W+VIEW_PAD_X,H+VIEW_PAD_Y);ocean.addColorStop(0,'#34636d');ocean.addColorStop(.5,'#25545f');ocean.addColorStop(1,'#193f50');ctx.fillStyle=ocean;ctx.fillRect(-VIEW_PAD_X,-VIEW_PAD_Y,VIEW_W,VIEW_H);
     ctx.strokeStyle='#a4c9bd0b';ctx.lineWidth=1;
     for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
     for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
@@ -404,7 +410,7 @@
       // Low-cost moving highlights leave the detailed sea texture visible.
       ctx.strokeStyle='#bcece512';ctx.lineWidth=1;
       for(let i=0;i<26;i++){const x=(i*137.51)%W,y=(i*73.73)%H;ctx.beginPath();ctx.ellipse(x+Math.sin(t*.5+i)*5,y,10+i%8,1.2,0,0,Math.PI);ctx.stroke();}
-      const vignette=ctx.createRadialGradient(CX,CY,160,CX,CY,570);vignette.addColorStop(0,'transparent');vignette.addColorStop(1,'#061c3238');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+      const vignette=ctx.createRadialGradient(CX,CY,160,CX,CY,720);vignette.addColorStop(0,'transparent');vignette.addColorStop(1,'#061c3238');ctx.fillStyle=vignette;ctx.fillRect(-VIEW_PAD_X,-VIEW_PAD_Y,VIEW_W,VIEW_H);
     }
     ctx.setLineDash([3,8]);circle(CX,CY,155,null,'#bed9b51c');circle(CX,CY,260,null,'#bed9b513');ctx.setLineDash([]);
     if(s.phase==='ready'){ship({x:210,y:170,radius:22,angle:.3,age:t,type:'armored',hp:1,maxHp:1});ship({x:800,y:400,radius:17,angle:3.2,age:t,type:'patrol',hp:1,maxHp:1});ship({x:710,y:120,radius:13,angle:2.4,age:t,type:'fast',hp:1,maxHp:1});}
@@ -431,11 +437,12 @@
     muzzleFlash(s.loadout.primary,s.recoil,57,0,27,7,.06);
     s.gunRecoil.forEach((remaining,index)=>muzzleFlash(s.loadout.secondary,remaining,SIDE_GUN.forward,(index?1:-1)*SIDE_GUN.lateral,14,3,.03));
     if(s.shield>0) {circle(CX,CY,66,'#a1e0cd18','#a0e6d7aa',3);circle(CX,CY,72,null,'#9edace36');}
-    if(s.freeze>0){ctx.fillStyle='#98dce00b';ctx.fillRect(0,0,W,H);}
+    if(s.freeze>0){ctx.fillStyle='#98dce00b';ctx.fillRect(-VIEW_PAD_X,-VIEW_PAD_Y,VIEW_W,VIEW_H);}
     for(const b of s.bullets){const color=(WEAPONS[b.type].find(w=>w.id===b.weapon)||WEAPONS[b.type][0]).color;ctx.strokeStyle=color+'88';ctx.lineWidth=b.weapon==='howitzer'?6:b.type==='primary'?4:2;ctx.beginPath();ctx.moveTo(b.x-b.vx*.022,b.y-b.vy*.022);ctx.lineTo(b.x,b.y);ctx.stroke();circle(b.x,b.y,b.weapon==='howitzer'?7:b.type==='primary'?5:2,color);}
     for(const e of s.effects){const a=e.age/e.duration;if(e.kind==='hull-hit'){hullImpact(e);continue;}if(e.kind==='ship-sink'){sinkingShip(e);continue;}if(e.kind==='beam'){ctx.save();ctx.globalAlpha=1-a;ctx.strokeStyle=e.color;ctx.lineWidth=e.size*(1-a)+1;ctx.shadowColor=e.color;ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.ex,e.ey);ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.stroke();ctx.restore();continue;}if(e.kind==='plasma'){ctx.globalAlpha=1-a;circle(e.x,e.y,e.size*(.3+a),'#c17cff18','#eea5ff',4*(1-a));circle(e.x,e.y,e.size*(1-a)*.6,'#f4caff99');ctx.globalAlpha=1;continue;}if(e.kind==='repair'){ctx.globalAlpha=1-a;circle(e.x,e.y,e.size*a,null,'#83efb3',2);ctx.globalAlpha=1;continue;}if(e.kind==='explosion'&&art.explosion(ctx,e))continue;ctx.globalAlpha=1-a;if(e.kind==='airstrike'){circle(e.x,e.y,e.size*a,null,'#fff0b5',12*(1-a));}else if(e.kind==='shield'){circle(e.x,e.y,e.size+a*15,null,'#bdf2dc',4);}else{circle(e.x,e.y,e.size*(.2+a*.8),null,'#edba8666',3);circle(e.x,e.y,e.size*(1-a)*.65,'#efb47699');circle(e.x,e.y,e.size*(1-a)*.3,'#ffe6a9');for(let i=0;i<7;i++){const angle=e.seed+i*Math.PI*2/7;circle(e.x+Math.cos(angle)*e.size*a,e.y+Math.sin(angle)*e.size*a,2*(1-a),'#ffe1a8');}}ctx.globalAlpha=1;}
     if(s.phase==='playing'&&!s.paused){const a=s.aim;ctx.strokeStyle='#e5d29c';ctx.lineWidth=1.5;circle(a.x,a.y,14,null,'#e5d29c');ctx.beginPath();ctx.moveTo(a.x-21,a.y);ctx.lineTo(a.x-8,a.y);ctx.moveTo(a.x+8,a.y);ctx.lineTo(a.x+21,a.y);ctx.moveTo(a.x,a.y-21);ctx.lineTo(a.x,a.y-8);ctx.moveTo(a.x,a.y+8);ctx.lineTo(a.x,a.y+21);ctx.stroke();circle(a.x,a.y,2,'#f6ddb1');}
-    if(s.damageFlash>0){ctx.strokeStyle=`rgba(219,116,84,${s.damageFlash*2})`;ctx.lineWidth=15;ctx.strokeRect(0,0,W,H);}
+    if(s.damageFlash>0){ctx.strokeStyle=`rgba(219,116,84,${s.damageFlash*2})`;ctx.lineWidth=15;ctx.strokeRect(-VIEW_PAD_X,-VIEW_PAD_Y,VIEW_W,VIEW_H);}
+    ctx.restore();
   }
   function frame(time) {
     if(!dialog.open)return;
@@ -446,7 +453,7 @@
     if(owner && canSave && !saving && !loadingSave && !conflict && game.state.phase === 'playing' && Date.now()-lastSave>5000) persist();
     raf=requestAnimationFrame(frame);
   }
-  function aim(event){const r=canvas.getBoundingClientRect();game.setAim((event.clientX-r.left)/r.width*W,(event.clientY-r.top)/r.height*H);}
+  function aim(event){const r=canvas.getBoundingClientRect();game.setAim((event.clientX-r.left)/r.width*VIEW_W-VIEW_PAD_X,(event.clientY-r.top)/r.height*VIEW_H-VIEW_PAD_Y);}
   canvas.addEventListener('pointermove',event=>{if(game.state.phase==='playing'&&!game.state.paused&&stickPointer===null&&(pointer===null||pointer===event.pointerId))aim(event);});
   canvas.addEventListener('pointerdown',event=>{if(game.state.phase!=='playing'||game.state.paused||event.button!==0||pointer!==null||stickPointer!==null)return;event.preventDefault();pointer=event.pointerId;canvas.setPointerCapture(pointer);canvas.focus({preventScroll:true});aim(event);game.trigger('secondary',true);});
   canvas.addEventListener('pointerup',event=>{if(pointer===event.pointerId){game.trigger('secondary',false);pointer=null;}});
@@ -484,6 +491,7 @@
   });
   dialog.addEventListener('keyup',event=>{if(event.code==='Space')game.trigger('primary',false);if(event.key.toLowerCase()==='f')game.trigger('secondary',false);});
   dialog.addEventListener('click',async event=>{
+    const difficulty=event.target.closest('[data-sea-difficulty]');if(difficulty){if(game.setDifficulty(difficulty.dataset.seaDifficulty)){update(true);persist();}return;}
     const weapon=event.target.closest('[data-sea-weapon]');if(weapon){if(game.equip(weapon.dataset.seaSlot,weapon.dataset.seaWeapon)){notify(game.state.message);update(true);persist();}return;}
     const item=event.target.closest('[data-sea-item]');if(item){const ok=game.useItem(Number(item.dataset.seaItem));notify(ok?game.state.message:'当前无法使用该道具');update();return;}
     const buy=event.target.closest('[data-sea-buy]');if(buy){if(game.purchase(buy.dataset.seaBuy)){notify('补给完成，准备迎接下一波。');update(true);persist();}return;}

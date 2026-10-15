@@ -8,6 +8,6 @@
     "dev": "node server.js",
     "start": "node server.js",
     "check": "node --check app.js && node --check server.js && node --check balls-engine.js && node --check balls.js && node --check sea-campaign.js && node --check sea-engine.js && node --check sea-art.js && node --check sea-audio.js && node --check sea.js && node --check accounts-api.js && node --check accounts.js && node --check sea-save.js && node --check sea-weapons.js",
-    "test": "node tests/balls-engine.test.js && node tests/sea-engine.test.js && node tests/sea-art.test.js && node tests/sea-audio.test.js && node tests/accounts.test.js && node tests/sea-progress.test.js && node tests/sea-weapons.test.js && node tests/sea-expansion.test.js"
+    "test": "node tests/balls-engine.test.js && node tests/sea-engine.test.js && node tests/sea-art.test.js && node tests/sea-audio.test.js && node tests/accounts.test.js && node tests/sea-progress.test.js && node tests/sea-weapons.test.js && node tests/sea-expansion.test.js && node tests/sea-balance.test.js"
   }
 }

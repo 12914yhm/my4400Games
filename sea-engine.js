@@ -2,6 +2,13 @@
 (function (root) {
   'use strict';
   const W = 960, H = 600, CX = W / 2, CY = H / 2, STEP = 1 / 120;
+  // Keep saved world coordinates stable while showing 25% more sea around the battery.
+  const VIEW_PAD_X = 120, VIEW_PAD_Y = 75, VIEW_W = 1200, VIEW_H = 750;
+  const DIFFICULTIES = Object.freeze({
+    low: Object.freeze({name:'低',hp:.75,damage:.75,spacing:1.55,maxAlive:2,reward:1.15}),
+    normal: Object.freeze({name:'中',hp:.9,damage:.9,spacing:1.3,maxAlive:3,reward:1}),
+    high: Object.freeze({name:'高',hp:1.15,damage:1.15,spacing:1,maxAlive:5,reward:1})
+  });
   const campaign = typeof module !== 'undefined' && module.exports ? require('./sea-campaign') : root.SeaCampaign;
   const {WAVES,LEVELS,TYPES} = campaign;
   const HEAT = { perShot: 4.5, cooling: 25, resume: 30 };
@@ -47,7 +54,7 @@
   }
   function create(random = Math.random) {
     const state = {
-      phase: 'ready', paused: false, wave: 1, hp: 200, maxHp: 200, credits: 100, score: 0, kills: 0,
+      phase: 'ready', paused: false, difficulty: 'normal', wave: 1, hp: 200, maxHp: 200, credits: 100, score: 0, kills: 0,
       upgrades: { power: 0, rate: 0, cannon: 0, armor: 0 }, items: [1, 1, 1, 1],
       loadout: { primary: 'cannon', secondary: 'machinegun' },
       aim: { x: CX, y: 80 }, angle: -Math.PI / 2, primary: false, secondary: false,
@@ -76,8 +83,13 @@
       state.message=`已装备${weapon.name}`;return true;
     }
     function setAim(x, y) {
-      state.aim = { x: Math.max(0, Math.min(W, x)), y: Math.max(0, Math.min(H, y)) };
+      state.aim = { x: Math.max(-VIEW_PAD_X, Math.min(W + VIEW_PAD_X, x)), y: Math.max(-VIEW_PAD_Y, Math.min(H + VIEW_PAD_Y, y)) };
       state.angle = Math.atan2(state.aim.y - CY, state.aim.x - CX);
+    }
+    function setDifficulty(value) {
+      if (state.phase !== 'ready' || !DIFFICULTIES[value]) return false;
+      state.difficulty = value;
+      return true;
     }
     function release() { state.primary = false; state.secondary = false; }
     function resetRecoil() { state.recoil = 0; state.gunRecoil = [0,0]; }
@@ -89,7 +101,7 @@
     function pause(value = !state.paused) { state.paused = Boolean(value); release(); drainSounds(); }
     function beginWave() {
       state.phase = 'playing'; state.paused = false; state.total = LEVELS[state.wave-1].fleet.length;
-      state.spawnLeft = state.total; state.destroyed = 0; state.spawnTimer = .65;
+      state.spawnLeft = state.total; state.destroyed = 0; state.spawnTimer = .8;
       state.enemies = []; state.hostile = []; state.bullets = []; state.effects = [];
       state.shield = 0; state.freeze = 0; state.cannonCooldown = 0; state.gunCooldown = 0;
       state.gunHeat = 0; state.overheated = false; resetRecoil(); drainSounds(); emit('wave');
@@ -146,12 +158,13 @@
       const type=fleet[Math.max(0,state.total-state.spawnLeft)%fleet.length];
       const config = TYPES[type], side = Math.floor(random() * 4);
       let x, y;
-      if (side === 0) { x = -35; y = 35 + random() * (H - 70); }
-      else if (side === 1) { x = W + 35; y = 35 + random() * (H - 70); }
-      else if (side === 2) { x = 35 + random() * (W - 70); y = -35; }
-      else { x = 35 + random() * (W - 70); y = H + 35; }
-      const hp = Math.round(config.hp * (1 + (Math.min(state.wave,8) - 1) * .1 + Math.max(0,state.wave-8)*.045));
-      state.enemies.push({ ...config, id: serial++, type, x, y, hp, maxHp: hp,
+      if (side === 0) { x = -VIEW_PAD_X - 35; y = -VIEW_PAD_Y + 35 + random() * (VIEW_H - 70); }
+      else if (side === 1) { x = W + VIEW_PAD_X + 35; y = -VIEW_PAD_Y + 35 + random() * (VIEW_H - 70); }
+      else if (side === 2) { x = -VIEW_PAD_X + 35 + random() * (VIEW_W - 70); y = -VIEW_PAD_Y - 35; }
+      else { x = -VIEW_PAD_X + 35 + random() * (VIEW_W - 70); y = H + VIEW_PAD_Y + 35; }
+      const difficulty=DIFFICULTIES[state.difficulty];
+      const hp = Math.round(config.hp * (1 + (Math.min(state.wave,8) - 1) * .1 + Math.max(0,state.wave-8)*.045) * difficulty.hp);
+      state.enemies.push({ ...config, damage:Math.round(config.damage*difficulty.damage), reward:Math.round(config.reward*difficulty.reward), id: serial++, type, x, y, hp, maxHp: hp,
         angle: Math.atan2(CY - y, CX - x), cooldown: 1.8 + random() * 1.2,
         turn: random() > .5 ? 1 : -1, age: 0, flash: 0, submerged: false, chill:0, barrier:type==='guardian'?100:0 });
       state.spawnLeft--;
@@ -232,12 +245,17 @@
       state.message = `${ITEMS[index].name}已启用`; return true;
     }
     function price(id) {
+      if (id === 'fullRepair') return Math.max(40, Math.ceil((state.maxHp - state.hp) * .65 / 5) * 5);
       if (UPGRADES[id]) return UPGRADES[id].base + UPGRADES[id].step * state.upgrades[id];
       return ITEMS.find(item => item.id === id)?.price ?? Infinity;
     }
     function purchase(id) {
       if (state.phase !== 'shop') return false;
       const cost = price(id), upgrade = UPGRADES[id], index = ITEMS.findIndex(item => item.id === id);
+      if (id === 'fullRepair') {
+        if (state.hp >= state.maxHp || state.credits < cost) return false;
+        state.credits -= cost; state.hp = state.maxHp; state.message = '炮台已完全修复'; return true;
+      }
       if (state.credits < cost || (upgrade && state.upgrades[id] >= upgrade.max) || (!upgrade && index < 0)) return false;
       if (index >= 0 && state.items[index] >= 5) return false;
       state.credits -= cost;
@@ -262,7 +280,13 @@
       if (state.primary && !state.cannonCooldown) fire('primary');
       if (state.secondary && !state.gunCooldown) fire('secondary');
       state.spawnTimer -= dt;
-      if (state.spawnLeft > 0 && state.spawnTimer <= 0) { spawn(); state.spawnTimer = Math.max(.9, 2.4 - state.wave * .13); }
+      if (state.spawnLeft > 0 && state.spawnTimer <= 0) {
+        const difficulty=DIFFICULTIES[state.difficulty];
+        const cap=difficulty.maxAlive+Math.floor((state.wave-1)/4);
+        if (state.enemies.filter(enemy=>enemy.hp>0).length < cap) {
+          spawn(); state.spawnTimer = Math.max(.9, 2.4 - state.wave * .13) * difficulty.spacing;
+        } else state.spawnTimer = .25;
+      }
       const slow = state.freeze > 0 ? .25 : 1;
       for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
@@ -311,13 +335,13 @@
           }
         }
         if (!hit && bullet.remaining <= 0 && bullet.type === 'primary') detonate(bullet);
-        bullet.dead = hit || bullet.remaining <= 0 || bullet.x < -50 || bullet.x > W + 50 || bullet.y < -50 || bullet.y > H + 50;
+        bullet.dead = hit || bullet.remaining <= 0 || bullet.x < -VIEW_PAD_X - 50 || bullet.x > W + VIEW_PAD_X + 50 || bullet.y < -VIEW_PAD_Y - 50 || bullet.y > H + VIEW_PAD_Y + 50;
       }
       for (const shell of state.hostile) {
         if (shell.dead) continue;
         shell.x += shell.vx * dt * slow; shell.y += shell.vy * dt * slow;
         if (Math.hypot(shell.x - CX, shell.y - CY) < (state.shield > 0 ? 65 : 43)) { hitBase(shell.damage); shell.dead = true; }
-        if(shell.x<-100||shell.x>W+100||shell.y<-100||shell.y>H+100)shell.dead=true;
+        if(shell.x<-VIEW_PAD_X-100||shell.x>W+VIEW_PAD_X+100||shell.y<-VIEW_PAD_Y-100||shell.y>H+VIEW_PAD_Y+100)shell.dead=true;
         if (state.phase === 'over') break;
       }
       state.bullets = state.bullets.filter(b => !b.dead); state.hostile = state.hostile.filter(b => !b.dead);
@@ -345,8 +369,8 @@
       serial = Math.max(0, ...state.enemies.map(e => e.id + 1));
       state.paused = state.phase === 'playing'; release(); resetRecoil(); drainSounds();
     }
-    return { state, setAim, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
+    return { state, setAim, setDifficulty, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
   }
-  const api = { create, W, H, CX, CY, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, HEAT, SIDE_GUN, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
+  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, HEAT, SIDE_GUN, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

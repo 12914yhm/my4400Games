@@ -72,7 +72,7 @@
   --sea-line: #ffffff14;
   --sea-text: #e9f3ef;
   --sea-muted: #a0b8bb;
-  width: min(1080px, calc((100dvh - 320px) * 1.6 + 40px), calc(100% - 24px));
+  width: min(1350px, calc((100dvh - 320px) * 2 + 50px), calc(100% - 24px));
   min-width: min(560px, calc(100% - 24px));
   max-height: 96dvh;
   border: 1px solid #ffffff1c;
@@ -180,7 +180,14 @@
 #sea-restart { width: 100%; min-height: 44px; font-size: 12px; border-color: #ffffff1a; color: #c3cec4; border-radius: 9px; margin-top: 16px; }
 #sea-surface:fullscreen { background: var(--sea-bg); }
 #sea-surface:fullscreen .sea-layout { flex: 1; min-height: 0; }
-#sea-surface:fullscreen .sea-main { max-width: min(100%, calc((100dvh - 320px) * 1.6)); margin: auto; }
+#sea-surface:fullscreen .sea-main { max-width: min(100%, calc((100dvh - 320px) * 2 + 50px)); margin: auto; }
+.sea-difficulty { margin: 14px auto 8px; max-width: 360px; }
+.sea-difficulty>span { display: block; margin-bottom: 8px; color: #c8d9d1; font-size: 12px; }
+.sea-difficulty>div { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+.sea-difficulty button { min-height: 38px; border: 1px solid #ffffff2b; border-radius: 8px; background: #ffffff0b; color: #d5e6dc; font-size: 12px; }
+.sea-difficulty button[aria-pressed=true] { border-color: #d9c796; background: #d9c796; color: #193a3d; font-weight: 700; }
+.sea-difficulty small { display: block; min-height: 18px; margin-top: 7px; color: #9cbdb5; font-size: 10px; }
+.sea-full-repair { grid-column: span 2; border-color: #91c9b488; background: #204942; }
 @media (max-width:600px) {
   .sea-header { padding: 8px 12px; }
   .sea-header h2 { font-size: 16px; }

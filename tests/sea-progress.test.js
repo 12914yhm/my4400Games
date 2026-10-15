@@ -131,6 +131,27 @@ test('guests play and close without reading or writing a save',async()=>{
   assert.equal(f.writes.length,0);assert.equal(f.reads.length,0);
   assert.match(f.element('#sea-save-status').textContent,/游客模式/);
 });
+test('ready screen selects and saves difficulty, and canvas maps the expanded sea to aim',async()=>{
+  const f=fixture({id:'test-user'});await f.window.SeaDefense.open();
+  assert.match(f.element('.sea-overlay').innerHTML,/选择难度/);
+  await f.dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-difficulty]'?{dataset:{seaDifficulty:'low'}}:null}});
+  await f.flush();assert.equal(f.game.state.difficulty,'low');
+  assert.equal(f.writes.at(-1).snapshot.state.difficulty,'low');
+  await f.action('start');
+  await f.element('canvas').emit('pointermove',{clientX:0,clientY:0});
+  assert.equal(f.game.state.aim.x,-Engine.VIEW_PAD_X);
+  assert.equal(f.game.state.aim.y,-Engine.VIEW_PAD_Y);
+  await f.dialog.close();await f.flush();
+});
+test('between-wave shop offers a full repair that immediately restores maximum health',async()=>{
+  const g=Engine.create();g.state.phase='shop';g.state.hp=60;g.state.credits=200;
+  const account=fixture({id:'test-user'});account.setSnapshot(g.snapshot());
+  await account.window.SeaDefense.open();
+  assert.match(account.element('.sea-overlay').innerHTML,/全面修复/);
+  await account.dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-buy]'?{dataset:{seaBuy:'fullRepair'}}:null}});
+  await account.flush();assert.equal(account.game.state.hp,account.game.state.maxHp);
+  await account.dialog.close();await account.flush();
+});
 test('armory shows locked weapons and equips an unlocked choice into the saved loadout',async()=>{
   const f=fixture({id:'test-user'}),g=Engine.create();g.state.wave=2;g.state.phase='shop';f.setSnapshot(g.snapshot());
   await f.window.SeaDefense.open();await f.element('#sea-armory-toggle').emit('click');

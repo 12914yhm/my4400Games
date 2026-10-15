@@ -32,6 +32,8 @@
       destroyed: n(0, campaign.MAX_ENEMIES, true), spawnTimer: n(-1000000, 10), elapsed: n(0, 10000000),
       lastReward: n(0, 10000, true), event: n(0, 10000000, true)
     });
+    state.difficulty = s.difficulty === undefined ? 'normal' : s.difficulty;
+    if (!one(['low','normal','high'])(state.difficulty)) throw new Error('难度数据无效');
     state.upgrades = object(s.upgrades, { power: n(0, 5, true), rate: n(0, 4, true), cannon: n(0, 4, true), armor: n(0, 4, true) });
     if (state.maxHp !== 200 + state.upgrades.armor * 60 || state.hp > state.maxHp) throw new Error('耐久数据无效');
     if (!Array.isArray(s.items) || s.items.length !== 4 || !s.items.every(n(0, 5, true))) throw new Error('道具数据无效');
@@ -41,7 +43,7 @@
       primary:v=>!!weapons.find('primary',v),secondary:v=>!!weapons.find('secondary',v)
     });
     for(const slot of ['primary','secondary'])if(weapons.find(slot,state.loadout[slot]).wave>weapons.unlockWave(state))throw new Error('武器尚未解锁');
-    state.aim = object(s.aim, { x: n(0, 960), y: n(0, 600) });
+    state.aim = object(s.aim, { x: n(-120, 1080), y: n(-75, 675) });
     state.enemies = list(s.enemies, { ...position, id: n(0, 100000, true), type: one(Object.keys(campaign.TYPES)),
       hp: n(0, 10000), maxHp: n(1, 10000), speed: n(1, 100), radius: n(1, 50), reward: n(0, 1000), damage: n(0, 100),
       interval: n(.1, 10), range: n(0, 500), angle: n(-100, 100), cooldown: n(-1, 10), turn: one([-1, 1]), age: n(0, 10000000), flash: n(0, 1), submerged: bool }, campaign.MAX_ENEMIES);
