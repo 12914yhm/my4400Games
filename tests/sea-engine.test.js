@@ -82,6 +82,53 @@ test('pause freezes weapon heat and cooldown; next wave resets both and upgrades
   game.state.phase='shop';game.state.credits=500;const oldDelay=game.cannonDelay();game.purchase('rate');assert.ok(game.cannonDelay()<oldDelay);
   game.nextWave();assert.equal(game.state.gunHeat,0);assert.equal(game.state.cannonCooldown,0);assert.equal(game.state.overheated,false);
 });
+test('every weapon kicks quickly then returns; heavy artillery has stronger recoil', () => {
+  const {RECOIL,recoilOffset,WEAPONS}=require('../sea-engine');
+  for(const weapon of [...WEAPONS.primary,...WEAPONS.secondary]){
+    const p=RECOIL[weapon.id];
+    assert.equal(recoilOffset(weapon.id,p.duration),0);
+    assert.ok(Math.abs(recoilOffset(weapon.id,p.duration-p.kick)-p.distance)<1e-8);
+    assert.ok(recoilOffset(weapon.id,(p.duration-p.kick)/2)<p.distance/2);
+    assert.equal(recoilOffset(weapon.id,0),0);
+    const slot=WEAPONS.primary.includes(weapon)?'primary':'secondary';
+    const game=weaponFixture();game.state.loadout[slot]=weapon.id;
+    game.trigger(slot,true);game.release();
+    assert.equal(slot==='primary'?game.state.recoil:game.state.gunRecoil[0],p.duration);
+    advance(game,p.duration+.02);
+    assert.equal(game.state.recoil,0);assert.deepEqual(game.state.gunRecoil,[0,0]);
+  }
+  assert.ok(RECOIL.howitzer.distance>RECOIL.cannon.distance);
+  assert.ok(RECOIL.cannon.distance>RECOIL.laser.distance);
+});
+
+test('side guns recoil only when fired, alternate independently and twin kicks both mounts', () => {
+  const {RECOIL}=require('../sea-engine'),game=weaponFixture();
+  game.trigger('secondary',true);game.release();
+  assert.deepEqual(game.state.gunRecoil,[RECOIL.machinegun.duration,0]);
+  advance(game,.04);
+  const before=[...game.state.gunRecoil];
+  game.trigger('secondary',true);game.release();assert.deepEqual(game.state.gunRecoil,before);
+  game.state.gunCooldown=0;game.trigger('secondary',true);game.release();
+  assert.equal(game.state.gunRecoil[0],before[0]);assert.equal(game.state.gunRecoil[1],RECOIL.machinegun.duration);
+  advance(game,.2);game.state.overheated=true;game.state.gunCooldown=0;
+  game.trigger('secondary',true);game.release();assert.deepEqual(game.state.gunRecoil,[0,0]);
+  game.state.overheated=false;game.state.loadout.secondary='twin';game.trigger('secondary',true);
+  assert.deepEqual(game.state.gunRecoil,[RECOIL.twin.duration,RECOIL.twin.duration]);
+});
+
+test('recoil freezes on pause, ignores cooldown spam and resets on equip, load and next wave', () => {
+  const game=fixture();game.trigger('primary',true);game.trigger('secondary',true);game.release();advance(game,.025);
+  const recoil=game.state.recoil,guns=[...game.state.gunRecoil];
+  game.trigger('primary',true);game.release();assert.equal(game.state.recoil,recoil);
+  game.pause(true);advance(game,2);assert.equal(game.state.recoil,recoil);assert.deepEqual(game.state.gunRecoil,guns);
+  game.state.enemies[0].cooldown=2;
+  const saved=game.snapshot();game.restore(saved);assert.equal(game.state.recoil,0);assert.deepEqual(game.state.gunRecoil,[0,0]);
+  game.state.wave=8;game.state.recoil=.2;game.state.gunRecoil=[.1,.1];
+  assert.equal(game.equip('primary','howitzer'),true);assert.equal(game.state.recoil,0);assert.deepEqual(game.state.gunRecoil,[0,0]);
+  game.state.phase='shop';game.state.recoil=.2;game.state.gunRecoil=[.1,.1];
+  game.nextWave();assert.equal(game.state.recoil,0);assert.deepEqual(game.state.gunRecoil,[0,0]);
+});
+
 test('sound events drain once and do not grow without a rendering consumer', () => {
   const game=weaponFixture();game.trigger('primary',true);assert.deepEqual(game.drainSounds(),['weapon:cannon']);assert.deepEqual(game.drainSounds(),[]);
   advance(game,30);assert.ok(game.drainSounds().length<=32);

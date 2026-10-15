@@ -7,6 +7,20 @@
   const HEAT = { perShot: 4.5, cooling: 25, resume: 30 };
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
   const SIDE_GUN = Object.freeze({ forward: 44, lateral: 34, size: 52 });
+  // Pixels / seconds: a quick kick followed by a slower spring return.
+  const RECOIL = Object.freeze(Object.fromEntries(Object.entries({
+    cannon: [12,.32,.028], spread: [14,.30,.025], howitzer: [20,.44,.04],
+    laser: [3,.16,.02], railgun: [16,.34,.025], plasma: [11,.38,.035],
+    machinegun: [4,.12,.012], twin: [5,.14,.012], rapid: [3.5,.08,.01],
+    cryo: [3,.12,.012], tesla: [2.5,.14,.015]
+  }).map(([id,[distance,duration,kick]])=>[id,Object.freeze({distance,duration,kick})])));
+  function recoilOffset(id, remaining) {
+    const profile = RECOIL[id];
+    if (!profile || !Number.isFinite(remaining) || remaining <= 0) return 0;
+    const age = Math.max(0, profile.duration - remaining);
+    return profile.distance * (age < profile.kick ? Math.sin(age / profile.kick * Math.PI / 2)
+      : Math.pow(Math.max(0, 1 - (age - profile.kick) / (profile.duration - profile.kick)), 2));
+  }
   function secondaryMuzzle(angle, side) {
     return { x: CX + Math.cos(angle) * SIDE_GUN.forward - Math.sin(angle) * SIDE_GUN.lateral * side,
       y: CY + Math.sin(angle) * SIDE_GUN.forward + Math.cos(angle) * SIDE_GUN.lateral * side };
@@ -35,7 +49,7 @@
       upgrades: { power: 0, rate: 0, cannon: 0, armor: 0 }, items: [1, 1, 1, 1],
       loadout: { primary: 'cannon', secondary: 'machinegun' },
       aim: { x: CX, y: 80 }, angle: -Math.PI / 2, primary: false, secondary: false,
-      cannonCooldown: 0, gunCooldown: 0, recoil: 0, shield: 0, freeze: 0,
+      cannonCooldown: 0, gunCooldown: 0, recoil: 0, gunRecoil: [0,0], shield: 0, freeze: 0,
       gunHeat: 0, overheated: false,
       enemies: [], bullets: [], hostile: [], effects: [], spawnLeft: 0, total: 0, destroyed: 0,
       spawnTimer: 0, elapsed: 0, accumulator: 0, lastReward: 0, damageFlash: 0, message: '', event: 0
@@ -55,7 +69,7 @@
       const weapon = weapons.find(slot,id);
       if(!weapon || weapon.wave>weapons.unlockWave(state) || !(['ready','shop'].includes(state.phase) || (state.phase==='playing'&&state.paused)))return false;
       if(state.loadout[slot]===id)return false;
-      release();state.loadout[slot]=id;
+      release();state.loadout[slot]=id;resetRecoil();
       // Heat and remaining cooldown survive switching; swapping never grants a free shot.
       state.message=`已装备${weapon.name}`;return true;
     }
@@ -64,6 +78,7 @@
       state.angle = Math.atan2(state.aim.y - CY, state.aim.x - CX);
     }
     function release() { state.primary = false; state.secondary = false; }
+    function resetRecoil() { state.recoil = 0; state.gunRecoil = [0,0]; }
     function trigger(type, down) {
       if (!['primary', 'secondary'].includes(type)) return;
       state[type] = Boolean(down) && state.phase === 'playing' && !state.paused;
@@ -75,7 +90,7 @@
       state.spawnLeft = state.total; state.destroyed = 0; state.spawnTimer = .65;
       state.enemies = []; state.hostile = []; state.bullets = []; state.effects = [];
       state.shield = 0; state.freeze = 0; state.cannonCooldown = 0; state.gunCooldown = 0;
-      state.gunHeat = 0; state.overheated = false; drainSounds(); emit('wave');
+      state.gunHeat = 0; state.overheated = false; resetRecoil(); drainSounds(); emit('wave');
       release(); state.message = `第 ${state.wave} 波来袭，守住中央炮台！`;
     }
     function start() { if (state.phase !== 'ready') return false; beginWave(); return true; }
@@ -127,8 +142,10 @@
       const distance = Math.max(65, Math.hypot(state.aim.x - CX, state.aim.y - CY));
       for(let i=0;i<weapon.count;i++){
         const spread=(i-(weapon.count-1)/2)*weapon.spread;
+        const side = weapon.count > 1 ? (i % 2 ? 1 : -1) : secondarySide;
         const origin=cannon ? {x:CX+Math.cos(angle+spread)*muzzle,y:CY+Math.sin(angle+spread)*muzzle}
-          : secondaryMuzzle(angle,weapon.count>1 ? (i%2 ? 1 : -1) : secondarySide);
+          : secondaryMuzzle(angle,side);
+        if (!cannon) state.gunRecoil[side === -1 ? 0 : 1] = RECOIL[weapon.id].duration;
         // Side guns fire parallel to their barrels; the pointer only rotates the turret.
         const direction=cannon ? angle+spread : angle;
         if(weapon.mode){fireBeam(origin,direction,weapon);continue;}
@@ -136,7 +153,7 @@
           vx: Math.cos(direction) * speed, vy: Math.sin(direction) * speed, type, weapon:weapon.id,
           damage: weapon.damage, remaining: cannon ? Math.max(8, distance - muzzle) : 1100, radius:weapon.radius });
       }
-      if (cannon) { state.cannonCooldown = cannonDelay(); state.recoil = .18; state.event++; emit('weapon:'+weapon.id); }
+      if (cannon) { state.cannonCooldown = cannonDelay(); state.recoil = RECOIL[weapon.id].duration; state.event++; emit('weapon:'+weapon.id); }
       else {
         secondarySide *= -1;
         state.gunCooldown = weapon.interval;
@@ -212,6 +229,7 @@
       state.elapsed += dt;
       state.effects.forEach(e => { e.age += dt; }); state.effects = state.effects.filter(e => e.age < e.duration);
       state.recoil = Math.max(0, state.recoil - dt); state.damageFlash = Math.max(0, state.damageFlash - dt);
+      state.gunRecoil = state.gunRecoil.map(remaining => Math.max(0, remaining - dt));
       if (state.phase !== 'playing') return;
       state.shield = Math.max(0, state.shield - dt); state.freeze = Math.max(0, state.freeze - dt);
       const wasCooling = state.cannonCooldown > 0;
@@ -303,10 +321,10 @@
     function restore(value) {
       Object.assign(state, saves.clean(value).state);
       serial = Math.max(0, ...state.enemies.map(e => e.id + 1));
-      state.paused = state.phase === 'playing'; release(); drainSounds();
+      state.paused = state.phase === 'playing'; release(); resetRecoil(); drainSounds();
     }
     return { state, setAim, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
   }
-  const api = { create, W, H, CX, CY, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, HEAT, SIDE_GUN, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
+  const api = { create, W, H, CX, CY, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, HEAT, SIDE_GUN, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

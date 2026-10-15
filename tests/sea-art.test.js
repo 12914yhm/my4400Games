@@ -50,6 +50,17 @@ test('a failed sprite permits play and requests fallback only for missing art', 
   assert.equal(f.timers.size, 0);
 });
 
+test('textured recoil moves only firing mounts along the barrel while the platform stays fixed', async () => {
+  const f=fixture(),pending=f.art.load();f.requests.forEach(image=>image.onload());await pending;
+  const {RECOIL,SIDE_GUN}=require('../sea-engine'),p=RECOIL.howitzer,g=RECOIL.machinegun;
+  const transforms=[],ctx=f.context();ctx.translate=(...args)=>transforms.push(args);f.draws.length=0;
+  f.art.battery(ctx,480,300,1,p.duration-p.kick,{primary:'howitzer',secondary:'machinegun'},[g.duration-g.kick,0]);
+  assert.deepEqual(f.draws[0].slice(1),[-70,-70,140,140]);
+  assert.ok(Math.abs(f.draws[1][5]-(SIDE_GUN.forward-SIDE_GUN.size*.98-g.distance))<1e-8);
+  assert.equal(f.draws[2][5],SIDE_GUN.forward-SIDE_GUN.size*.98);
+  assert.ok(Math.abs(transforms.at(-1)[0]+p.distance)<1e-8);assert.equal(transforms.at(-1)[1],0);
+});
+
 test('stalled requests settle and late responses cannot change the active art set', async () => {
   const f = fixture(), pending = f.art.load(), late = f.requests[0].onload;
   for (const timeout of [...f.timers.values()]) timeout();

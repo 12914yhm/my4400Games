@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { W, H, CX, CY, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, unlockWave } = window.SeaEngine;
+  const { W, H, CX, CY, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, RECOIL, recoilOffset, unlockWave } = window.SeaEngine;
   const art = window.SeaArt;
   const audio = window.SeaAudio.create();
   const dialog = document.createElement('dialog');
@@ -347,17 +347,25 @@
     s.enemies.forEach(ship);
     for(const shell of s.hostile){ctx.strokeStyle=shell.torpedo?'#93d7cf99':'#eeb18299';ctx.lineWidth=shell.torpedo?4:2;ctx.beginPath();ctx.moveTo(shell.x-shell.vx*.08,shell.y-shell.vy*.08);ctx.lineTo(shell.x,shell.y);ctx.stroke();circle(shell.x,shell.y,shell.torpedo?4:3,shell.torpedo?'#d1e1bd':'#ffd0a0');}
     // Concrete octagonal battery and independently rotating gun assembly.
-    if (!art.battery(ctx,CX,CY,s.angle,s.recoil,s.loadout)) {
+    if (!art.battery(ctx,CX,CY,s.angle,s.recoil,s.loadout,s.gunRecoil)) {
     circle(CX,CY+8,60,'#0f354458');circle(CX,CY,59,'#c1c2a1','#789c96',3);
     ctx.save();ctx.translate(CX,CY);ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4+Math.PI/8;ctx.lineTo(Math.cos(a)*50,Math.sin(a)*50);}ctx.closePath();ctx.fillStyle='#737e73';ctx.fill();ctx.strokeStyle='#d1cab0';ctx.lineWidth=3;ctx.stroke();
     ctx.strokeStyle='#465f5b';ctx.lineWidth=2;for(let i=0;i<8;i++){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*35,Math.sin(a)*35);ctx.lineTo(Math.cos(a)*48,Math.sin(a)*48);ctx.stroke();}
     circle(0,0,32,'#334f4f','#a0ad94',3);circle(0,0,25,'#8a9680');
     ctx.rotate(s.angle);
-    for(const side of [-1,1]){const y=side*SIDE_GUN.lateral;rect(-9,y-9,25,18,4,'#7b8d80');rect(9,y-3,SIDE_GUN.forward-9,6,1,'#30484b');}
-    ctx.translate(-s.recoil*20,0);rect(-19,-18,40,36,8,'#a7af98');rect(-13,-13,22,26,4,'#7b8d80');rect(7,-8,46,16,3,'#344f51');rect(17,-6,31,4,1,'#9ba995');rect(48,-10,10,20,2,'#4b6160');circle(-9,0,6,'#596f63');
+    for(const side of [-1,1]){const y=side*SIDE_GUN.lateral,back=recoilOffset(s.loadout.secondary,s.gunRecoil[side===-1?0:1]);rect(-9-back,y-9,25,18,4,'#7b8d80');rect(9-back,y-3,SIDE_GUN.forward-9,6,1,'#30484b');}
+    ctx.translate(-recoilOffset(s.loadout.primary,s.recoil),0);rect(-19,-18,40,36,8,'#a7af98');rect(-13,-13,22,26,4,'#7b8d80');rect(7,-8,46,16,3,'#344f51');rect(17,-6,31,4,1,'#9ba995');rect(48,-10,10,20,2,'#4b6160');circle(-9,0,6,'#596f63');
     ctx.restore();
     }
-    if(s.recoil>.11){ctx.save();ctx.translate(CX,CY);ctx.rotate(s.angle);ctx.fillStyle=game.weaponStats('primary').color;ctx.beginPath();ctx.moveTo(57,-7);ctx.lineTo(84,0);ctx.lineTo(57,7);ctx.fill();ctx.restore();}
+    // Flashes follow the moving muzzle and end before the slower return stroke.
+    const muzzleFlash=(id,remaining,x,y,length,width,duration)=>{
+      if(remaining<=0||RECOIL[id].duration-remaining>=duration)return;
+      ctx.save();ctx.translate(CX,CY);ctx.rotate(s.angle);ctx.translate(x-recoilOffset(id,remaining),y);
+      ctx.fillStyle=(WEAPONS.primary.find(w=>w.id===id)||WEAPONS.secondary.find(w=>w.id===id)).color;
+      ctx.beginPath();ctx.moveTo(0,-width);ctx.lineTo(length,0);ctx.lineTo(0,width);ctx.fill();ctx.restore();
+    };
+    muzzleFlash(s.loadout.primary,s.recoil,57,0,27,7,.06);
+    s.gunRecoil.forEach((remaining,index)=>muzzleFlash(s.loadout.secondary,remaining,SIDE_GUN.forward,(index?1:-1)*SIDE_GUN.lateral,14,3,.03));
     if(s.shield>0) {circle(CX,CY,66,'#a1e0cd18','#a0e6d7aa',3);circle(CX,CY,72,null,'#9edace36');}
     if(s.freeze>0){ctx.fillStyle='#98dce00b';ctx.fillRect(0,0,W,H);}
     for(const b of s.bullets){const color=(WEAPONS[b.type].find(w=>w.id===b.weapon)||WEAPONS[b.type][0]).color;ctx.strokeStyle=color+'88';ctx.lineWidth=b.weapon==='howitzer'?6:b.type==='primary'?4:2;ctx.beginPath();ctx.moveTo(b.x-b.vx*.022,b.y-b.vy*.022);ctx.lineTo(b.x,b.y);ctx.stroke();circle(b.x,b.y,b.weapon==='howitzer'?7:b.type==='primary'?5:2,color);}

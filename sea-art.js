@@ -75,22 +75,23 @@
     }
     return true;
   }
-  function battery(ctx, x, y, angle, recoil, loadout = {}) {
+  function battery(ctx, x, y, angle, recoil, loadout = {}, gunRecoil = []) {
     const primary = textures['weapon_' + (loadout.primary || 'cannon')] || textures.turret;
     const secondary = textures['weapon_' + (loadout.secondary || 'machinegun')];
     if (!textures.base || !primary) return false;
     ctx.save(); ctx.translate(x, y);
     ctx.drawImage(textures.base, -70, -70, 140, 140);
     ctx.rotate(angle);
-    const { forward, lateral, size } = window.SeaEngine.SIDE_GUN;
+    const { SIDE_GUN: { forward, lateral, size }, recoilOffset } = window.SeaEngine;
     for (const side of [-1, 1]) {
+      const back = recoilOffset(loadout.secondary || 'machinegun', gunRecoil[side === -1 ? 0 : 1]);
       // Twin art contains two barrels; use one half per mount, not two double guns.
       const twin = loadout.secondary === 'twin', muzzleY = twin ? .38 : .505;
       if (secondary) ctx.drawImage(secondary, 0, 0, secondary.width, secondary.height * (twin ? .5 : 1),
-        forward - size * .98, side * lateral - size * muzzleY, size, size * (twin ? .5 : 1));
-      else { ctx.fillStyle = '#415d60'; ctx.fillRect(forward - 40, side * lateral - 4, 40, 8); }
+        forward - size * .98 - back, side * lateral - size * muzzleY, size, size * (twin ? .5 : 1));
+      else { ctx.fillStyle = '#415d60'; ctx.fillRect(forward - 40 - back, side * lateral - 4, 40, 8); }
     }
-    ctx.translate(-recoil * 20, 0);
+    ctx.translate(-recoilOffset(loadout.primary || 'cannon', recoil), 0);
     // Bearing is left of center; muzzle aligns with the simulation's 57 px origin.
     ctx.drawImage(primary, -33.6, -47.04, 96, 96);
     ctx.restore(); return true;
