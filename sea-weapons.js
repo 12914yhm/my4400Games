@@ -12,11 +12,11 @@
       {id:'plasma',name:'日冕等离子炮',wave:12,damage:240,count:1,spread:0,interval:3.8,speed:340,radius:120,color:'#f5a1ff',icon:'plasma',description:'缓慢的能量球引发大范围爆破，清理密集舰阵。'}
     ],
     secondary: [
-      {id:'machinegun',name:'轻型机枪',wave:1,damage:14,count:1,spread:0,interval:.13,speed:900,heat:4.5,color:'#ffe5a6',icon:'machinegun',description:'精准连续射击，可拦截敌方炮弹。'},
-      {id:'twin',name:'双联机枪',wave:2,damage:10,count:2,spread:.035,interval:.17,speed:900,heat:6.5,color:'#98e4df',icon:'twin',description:'双管同时开火，扩大拦截覆盖面。'},
-      {id:'rapid',name:'速射机炮',wave:5,damage:15,count:1,spread:0,interval:.075,speed:980,heat:3.8,color:'#c5b2ff',icon:'rapid',description:'高射速压制敌舰，连续开火更易过热。'},
-      {id:'cryo',name:'霜线冷冻机枪',wave:7,damage:12,count:1,spread:0,interval:.15,speed:800,heat:5,color:'#9fe6ff',icon:'cryo',description:'平直发射冷冻弹，命中减缓移动和开火 2 秒。'},
-      {id:'tesla',name:'风暴电弧机枪',wave:10,damage:42,count:1,spread:0,interval:.42,speed:0,heat:12,radius:0,mode:'chain',color:'#c7a3ff',icon:'tesla',description:'电弧沿枪口命中后跳跃至附近敌舰，最多 3 艘。'}
+      {id:'machinegun',name:'轻型机枪',wave:1,damage:14,count:1,spread:0,interval:.13,speed:900,magazine:36,reload:1.5,color:'#ffe5a6',icon:'machinegun',description:'36 发弹匣，打空后自动换弹；可拦截敌方炮弹。'},
+      {id:'twin',name:'双联机枪',wave:2,damage:10,count:2,spread:.035,interval:.17,speed:900,magazine:48,reload:1.7,color:'#98e4df',icon:'twin',description:'双管齐射，每轮消耗 2 发，打空自动换弹。'},
+      {id:'rapid',name:'速射机炮',wave:5,damage:15,count:1,spread:0,interval:.075,speed:980,magazine:50,reload:1.9,color:'#c5b2ff',icon:'rapid',description:'50 发弹匣，高射速压制；打空后自动换弹。'},
+      {id:'cryo',name:'霜线冷冻机枪',wave:7,damage:12,count:1,spread:0,interval:.15,speed:800,magazine:30,reload:1.6,color:'#9fe6ff',icon:'cryo',description:'30 发冷冻弹，命中减缓移动和开火 2 秒。'},
+      {id:'tesla',name:'风暴电弧机枪',wave:10,damage:42,count:1,spread:0,interval:.42,speed:0,magazine:12,reload:2.1,radius:0,mode:'chain',color:'#c7a3ff',icon:'tesla',description:'12 发电弧弹，沿枪口命中后跳跃至附近敌舰。'}
     ]
   };
   Object.values(WEAPONS).forEach(list=>list.sort((a,b)=>a.wave-b.wave));

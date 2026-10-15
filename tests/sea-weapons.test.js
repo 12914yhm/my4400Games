@@ -29,16 +29,16 @@ test('all weapons have real shot patterns, damage, speed and resource costs',()=
       assert.notEqual(g.state.bullets[0].y,g.state.bullets.at(-1).y);
     }
     if(slot==='primary'){assert.equal(g.state.cannonCooldown,weapon.interval);if(!weapon.mode)assert.equal(g.state.bullets[0].radius,weapon.radius);}
-    else {assert.equal(g.state.gunHeat,weapon.heat);assert.equal(g.state.gunCooldown,weapon.interval);}
+    else {assert.equal(g.state.gunAmmo,weapon.magazine-weapon.count);assert.equal(g.state.gunCooldown,weapon.interval);assert.equal(g.state.gunReload,0);}
     if(!weapon.mode)assert.equal(g.snapshot().state.bullets[0].weapon,weapon.id);
   }
 });
-test('switching requires pause and cannot clear cooldown, heat or overheat lock',()=>{
+test('switching requires pause and cannot refill ammunition or clear a reload',()=>{
   const g=Engine.create();g.state.wave=6;g.equip('primary','howitzer');g.start();g.trigger('primary',true);
   assert.equal(g.equip('primary','cannon'),false);g.pause(true);const cd=g.state.cannonCooldown;
-  g.state.gunHeat=100;g.state.overheated=true;g.state.gunCooldown=.1;
+  g.state.gunAmmo=0;g.state.gunReload=1;g.state.gunCooldown=.1;
   assert.equal(g.equip('primary','cannon'),true);assert.equal(g.state.cannonCooldown,cd);
-  assert.equal(g.equip('secondary','rapid'),true);assert.equal(g.state.gunHeat,100);assert.equal(g.state.overheated,true);assert.equal(g.state.gunCooldown,.1);
+  assert.equal(g.equip('secondary','rapid'),true);assert.equal(g.state.gunAmmo,0);assert.equal(g.state.gunReload,1);assert.equal(g.state.gunCooldown,.1);
   const count=g.state.bullets.length;g.pause(false);g.trigger('primary',true);g.trigger('secondary',true);
   assert.equal(g.state.bullets.length,count);assert.equal(g.snapshot().state.cannonCooldown,3.4);
 });
@@ -55,11 +55,16 @@ test('upgrades benefit all weapon types and loadout persists through waves and s
 });
 test('legacy saves migrate while forged and premature weapon selections are rejected',()=>{
   const g=Engine.create();g.start();g.trigger('primary',true);
-  const old=g.snapshot();delete old.state.loadout;old.state.bullets.forEach(b=>delete b.weapon);
+  const old=g.snapshot();delete old.state.loadout;delete old.state.gunAmmo;delete old.state.gunReload;
+  old.state.gunHeat=100;old.state.overheated=true;old.state.bullets.forEach(b=>delete b.weapon);
   const restored=Save.clean(old);assert.deepEqual(restored.state.loadout,{primary:'cannon',secondary:'machinegun'});assert.equal(restored.state.bullets[0].weapon,'cannon');
+  assert.equal(restored.state.gunAmmo,36);assert.equal(restored.state.gunReload,0);assert.equal('gunHeat' in restored.state,false);
   const bad=g.snapshot();bad.state.loadout.primary='howitzer';assert.throws(()=>Save.clean(bad));
   bad.state.loadout.primary='unknown';assert.throws(()=>Save.clean(bad));
   const wrongBullet=g.snapshot();wrongBullet.state.bullets[0].weapon='rapid';assert.throws(()=>Save.clean(wrongBullet));
+  const wrongAmmo=g.snapshot();wrongAmmo.state.gunAmmo=999;assert.throws(()=>Save.clean(wrongAmmo),/弹药/);
+  const reloading=g.snapshot();reloading.state.gunAmmo=0;reloading.state.gunReload=1.25;
+  assert.equal(Save.clean(reloading).state.gunReload,1.25);
 });
 test('a full campaign using newly unlocked weapons can be completed and saved throughout',()=>{
   let seed=81;const g=Engine.create(()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;});g.start();

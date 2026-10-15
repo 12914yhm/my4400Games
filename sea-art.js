@@ -80,7 +80,7 @@
     const secondary = textures['weapon_' + (loadout.secondary || 'machinegun')];
     if (!textures.base || !primary) return false;
     ctx.save(); ctx.translate(x, y);
-    ctx.drawImage(textures.base, -70, -70, 140, 140);
+    ctx.drawImage(textures.base, -59.5, -59.5, 119, 119);
     ctx.rotate(angle);
     const { SIDE_GUN: { forward, lateral, size }, recoilOffset } = window.SeaEngine;
     for (const side of [-1, 1]) {
@@ -92,8 +92,8 @@
       else { ctx.fillStyle = '#415d60'; ctx.fillRect(forward - 40 - back, side * lateral - 4, 40, 8); }
     }
     ctx.translate(-recoilOffset(loadout.primary || 'cannon', recoil), 0);
-    // Bearing is left of center; muzzle aligns with the simulation's 57 px origin.
-    ctx.drawImage(primary, -33.6, -47.04, 96, 96);
+    // Bearing and gun muzzles share the simulation's reduced turret geometry.
+    ctx.drawImage(primary, -28.6, -40, 82, 82);
     ctx.restore(); return true;
   }
   function explosion(ctx, effect) {

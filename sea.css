@@ -262,6 +262,14 @@
 }
 @media (prefers-reduced-motion:reduce) { #sea-dialog button { transition: none; } }
 
+/* Ammunition stays readable in the compact HUD, including desktop fullscreen. */
+#sea-ammo-bar { background: #79c9b7; }
+.sea-weapon.reloading #sea-ammo-bar { background: #d6bd82; }
+.sea-weapon.reloading b { color: #e8cb95; }
+#sea-cannon.reloading { background: #293c3e; border-color: #5f7569; color: #b6c4ad; }
+#sea-dialog:not(.sea-touch) #sea-surface:fullscreen .sea-main { max-width: min(100%, calc((100dvh - 280px) * 1.6)); }
+#sea-dialog:not(.sea-touch) #sea-surface:fullscreen .sea-weapons { position: relative; z-index: 4; padding: 8px 12px; border-radius: 10px; background: #19363edb; }
+
 /* Campaign route stays inside the on-demand help panel. */
 .sea-route-panel { margin: 16px 0; border-top: 1px solid #ffffff18; padding-top: 16px; }
 .sea-route-panel summary { cursor: pointer; font-size: 13px; color: #c5e5d8; min-height: 32px; }

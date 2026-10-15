@@ -55,3 +55,10 @@ test('expanded camera allows aiming at visible outer sea and accepts old saves',
   save.state.difficulty = 'impossible';
   assert.throws(() => Save.clean(save), /难度/);
 });
+
+test('new ships have larger matching hit areas and remain valid in cloud saves', () => {
+  const game=Engine.create(() => .1);game.start();advance(game,1);
+  const ship=game.state.enemies[0];
+  assert.equal(ship.radius,Engine.TYPES[ship.type].radius*1.2);
+  assert.equal(Save.clean(game.snapshot()).state.enemies[0].radius,ship.radius);
+});

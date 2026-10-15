@@ -55,7 +55,7 @@ test('textured recoil moves only firing mounts along the barrel while the platfo
   const {RECOIL,SIDE_GUN}=require('../sea-engine'),p=RECOIL.howitzer,g=RECOIL.machinegun;
   const transforms=[],ctx=f.context();ctx.translate=(...args)=>transforms.push(args);f.draws.length=0;
   f.art.battery(ctx,480,300,1,p.duration-p.kick,{primary:'howitzer',secondary:'machinegun'},[g.duration-g.kick,0]);
-  assert.deepEqual(f.draws[0].slice(1),[-70,-70,140,140]);
+  assert.deepEqual(f.draws[0].slice(1),[-59.5,-59.5,119,119]);
   assert.ok(Math.abs(f.draws[1][5]-(SIDE_GUN.forward-SIDE_GUN.size*.98-g.distance))<1e-8);
   assert.equal(f.draws[2][5],SIDE_GUN.forward-SIDE_GUN.size*.98);
   assert.ok(Math.abs(transforms.at(-1)[0]+p.distance)<1e-8);assert.equal(transforms.at(-1)[1],0);

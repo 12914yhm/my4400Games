@@ -15,7 +15,7 @@ test('battle snapshot restores ships, upgrades, weapons and inventory with relea
   const snapshot = JSON.parse(JSON.stringify(game.snapshot()));
   assert.ok(snapshot.state.enemies.length > 0); assert.ok(snapshot.state.bullets.length > 0);
   const restored = Engine.create(); restored.restore(snapshot);
-  for (const key of ['wave','credits','score','upgrades','items','enemies','bullets','hostile','shield','gunHeat','cannonCooldown','spawnLeft']) assert.deepEqual(restored.state[key], game.snapshot().state[key]);
+  for (const key of ['wave','credits','score','upgrades','items','enemies','bullets','hostile','shield','gunAmmo','gunReload','cannonCooldown','spawnLeft']) assert.deepEqual(restored.state[key], game.snapshot().state[key]);
   assert.equal(restored.state.paused, true); assert.equal(restored.state.primary, false); assert.equal(restored.state.secondary, false);
   const before = restored.state.elapsed; restored.step(.1); assert.equal(restored.state.elapsed, before);
   restored.pause(false); for(let i=0;i<60;i++)restored.step(.05);

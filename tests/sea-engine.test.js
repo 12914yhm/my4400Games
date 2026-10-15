@@ -13,7 +13,7 @@ function weaponFixture() {
 }
 
 test('side guns alternate physical muzzles and fire parallel regardless of aim distance', () => {
-  const { secondaryMuzzle } = require('../sea-engine');
+  const { secondaryMuzzle, MAIN_MUZZLE } = require('../sea-engine');
   for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2, .73]) {
     for (const weapon of ['machinegun','rapid']) for (const distance of [10,100,220]) {
     const game = fixture(), x = CX + Math.cos(angle) * distance, y = CY + Math.sin(angle) * distance;
@@ -29,7 +29,7 @@ test('side guns alternate physical muzzles and fire parallel regardless of aim d
     }
     game.trigger('primary',true);
     const shell=game.state.bullets.at(-1);
-    assert.ok(Math.hypot(shell.x-CX-Math.cos(angle)*57,shell.y-CY-Math.sin(angle)*57)<1e-9);
+    assert.ok(Math.hypot(shell.x-CX-Math.cos(angle)*MAIN_MUZZLE,shell.y-CY-Math.sin(angle)*MAIN_MUZZLE)<1e-9);
     }
   }
 });
@@ -48,26 +48,29 @@ test('twin fires one bullet per side; aiming at the base never fires backwards',
   game.release();advance(game,.1);
   assert.equal(left.y-right.y,-2*require('../sea-engine').SIDE_GUN.lateral);
 });
-test('sustained fire overheats, cannot be bypassed by tapping, and recovers only after cooling', () => {
+test('the last machine-gun round immediately starts a reload; tapping cannot bypass it', () => {
   const game = weaponFixture(); game.trigger('secondary', true);
-  for(let i=0;i<600&&!game.state.overheated;i++) game.step(1/120);
-  assert.equal(game.state.overheated,true); assert.equal(game.state.gunHeat,100);
-  assert.equal(game.drainSounds().filter(s=>s==='overheat').length,1);
-  for(let i=0;i<100;i++){game.trigger('secondary',false);game.trigger('secondary',true);}
+  for(let i=0;i<900&&!game.state.gunReload;i++) game.step(1/120);
+  assert.equal(game.state.gunAmmo,0);assert.ok(game.state.gunReload>0);
+  game.release();game.drainSounds();
+  for(let i=0;i<50;i++){game.trigger('secondary',true);game.trigger('secondary',false);}
   assert.equal(game.drainSounds().includes('weapon:machinegun'),false);
-  advance(game,2); assert.equal(game.state.overheated,true); assert.ok(game.state.gunHeat>30);
-  game.trigger('secondary',false);advance(game,.9);
-  assert.equal(game.state.overheated,false);assert.ok(game.state.gunHeat<=30);
-  game.drainSounds();game.trigger('secondary',true);assert.ok(game.drainSounds().includes('weapon:machinegun'));
+  advance(game,game.state.gunReload+.02);
+  assert.equal(game.state.gunAmmo,game.weaponStats('secondary').magazine);
+  game.trigger('secondary',true);assert.equal(game.state.gunAmmo,35);
 });
-test('burst fire cools while released and upgraded rate still respects heat lock', () => {
+test('releasing the trigger keeps remaining rounds, and rate upgrades shorten reloads', () => {
   const game=weaponFixture();game.trigger('secondary',true);advance(game,1);game.release();
-  const heat=game.state.gunHeat;advance(game,.5);assert.ok(game.state.gunHeat<heat);assert.equal(game.state.overheated,false);
-  game.state.upgrades.rate=4;game.trigger('secondary',true);advance(game,2);
-  assert.equal(game.state.overheated,true);assert.ok(game.state.gunHeat>=0&&game.state.gunHeat<=100);
+  const remaining=game.state.gunAmmo;advance(game,.5);assert.equal(game.state.gunAmmo,remaining);
+  game.state.upgrades.rate=4;game.state.gunAmmo=1;game.state.gunCooldown=0;
+  game.trigger('secondary',true);
+  assert.equal(game.state.gunAmmo,0);
+  assert.equal(game.state.gunReload,game.weaponStats('secondary').reload);
+  assert.ok(game.state.gunReload<1.5);
 });
-test('cannon cooldown rejects spam and remains available during machine gun overheat', () => {
-  const game=weaponFixture();game.state.overheated=true;game.state.gunHeat=100;
+test('cannon loading rejects spam and remains independent of machine-gun reload', () => {
+  const game=weaponFixture();game.state.gunAmmo=1;game.trigger('secondary',true);game.release();
+  assert.ok(game.state.gunReload>0);
   game.trigger('primary',true);game.trigger('primary',false);
   for(let i=0;i<30;i++){game.trigger('primary',true);game.trigger('primary',false);}
   assert.equal(game.drainSounds().filter(s=>s==='weapon:cannon').length,1);
@@ -75,12 +78,12 @@ test('cannon cooldown rejects spam and remains available during machine gun over
   assert.equal(game.drainSounds().filter(s=>s==='weapon:cannon').length,0);
   advance(game,.3);game.trigger('primary',true);assert.ok(game.drainSounds().includes('weapon:cannon'));
 });
-test('pause freezes weapon heat and cooldown; next wave resets both and upgrades shorten cooldown', () => {
+test('pause freezes ammunition loading; next wave refills both weapons', () => {
   const game=weaponFixture();game.trigger('primary',true);game.trigger('secondary',true);advance(game,.4);game.pause(true);
-  const heat=game.state.gunHeat,cooldown=game.state.cannonCooldown;advance(game,5);
-  assert.equal(game.state.gunHeat,heat);assert.equal(game.state.cannonCooldown,cooldown);assert.deepEqual(game.drainSounds(),[]);
+  const ammo=game.state.gunAmmo,cooldown=game.state.cannonCooldown;advance(game,5);
+  assert.equal(game.state.gunAmmo,ammo);assert.equal(game.state.cannonCooldown,cooldown);assert.deepEqual(game.drainSounds(),[]);
   game.state.phase='shop';game.state.credits=500;const oldDelay=game.cannonDelay();game.purchase('rate');assert.ok(game.cannonDelay()<oldDelay);
-  game.nextWave();assert.equal(game.state.gunHeat,0);assert.equal(game.state.cannonCooldown,0);assert.equal(game.state.overheated,false);
+  game.nextWave();assert.equal(game.state.gunAmmo,36);assert.equal(game.state.gunReload,0);assert.equal(game.state.cannonCooldown,0);
 });
 test('every weapon kicks quickly then returns; heavy artillery has stronger recoil', () => {
   const {RECOIL,recoilOffset,WEAPONS}=require('../sea-engine');
@@ -110,9 +113,9 @@ test('side guns recoil only when fired, alternate independently and twin kicks b
   game.trigger('secondary',true);game.release();assert.deepEqual(game.state.gunRecoil,before);
   game.state.gunCooldown=0;game.trigger('secondary',true);game.release();
   assert.equal(game.state.gunRecoil[0],before[0]);assert.equal(game.state.gunRecoil[1],RECOIL.machinegun.duration);
-  advance(game,.2);game.state.overheated=true;game.state.gunCooldown=0;
+  advance(game,.2);game.state.gunAmmo=0;game.state.gunReload=1;game.state.gunCooldown=0;
   game.trigger('secondary',true);game.release();assert.deepEqual(game.state.gunRecoil,[0,0]);
-  game.state.overheated=false;game.state.loadout.secondary='twin';game.trigger('secondary',true);
+  game.state.gunReload=0;game.state.gunAmmo=48;game.state.loadout.secondary='twin';game.trigger('secondary',true);
   assert.deepEqual(game.state.gunRecoil,[RECOIL.twin.duration,RECOIL.twin.duration]);
 });
 

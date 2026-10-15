@@ -22,7 +22,7 @@ test('laser instantly hits only the first ship; electromagnetic shot pierces thr
 test('electric arcs jump at most three times, exclude submerged targets and intercept shells first',()=>{
  const g=game('cannon','tesla'),ships=[ship('patrol',1,600,266),ship('patrol',2,660,320),ship('patrol',3,720,370),ship('patrol',4,770,410),ship('submarine',5,620,280)];
  ships[4].submerged=true;g.state.enemies=ships;g.trigger('secondary',true);
- assert.equal(ships.filter(s=>s.hp<1000).length,3);assert.equal(ships[4].hp,1000);assert.equal(g.state.gunHeat,12);
+ assert.equal(ships.filter(s=>s.hp<1000).length,3);assert.equal(ships[4].hp,1000);assert.equal(g.state.gunAmmo,11);
  const h=game('cannon','tesla');h.state.enemies=[ship('patrol',1,700,266)];h.state.hostile=[{x:580,y:266,vx:-100,vy:0,damage:10,torpedo:false}];h.trigger('secondary',true);
  assert.equal(h.state.hostile[0].dead,true);assert.equal(h.state.enemies[0].hp,1000);
 });

@@ -131,6 +131,15 @@ test('guests play and close without reading or writing a save',async()=>{
   assert.equal(f.writes.length,0);assert.equal(f.reads.length,0);
   assert.match(f.element('#sea-save-status').textContent,/游客模式/);
 });
+test('battle HUD shows the last round, automatic reload and cannon loading',async()=>{
+  const f=fixture();await f.window.SeaDefense.open();await f.action('start');
+  f.game.state.gunAmmo=1;f.game.trigger('secondary',true);f.game.release();
+  f.game.trigger('primary',true);f.game.release();f.frame(1000);
+  assert.match(f.element('#sea-ammo-value').textContent,/换弹/);
+  assert.match(f.element('#sea-reload-value').textContent,/s$/);
+  assert.match(f.element('#sea-cannon-status').textContent,/装填/);
+  await f.dialog.close();
+});
 test('ready screen selects and saves difficulty, and canvas maps the expanded sea to aim',async()=>{
   const f=fixture({id:'test-user'});await f.window.SeaDefense.open();
   assert.match(f.element('.sea-overlay').innerHTML,/选择难度/);

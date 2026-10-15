@@ -28,7 +28,7 @@
       wave: n(1, campaign.WAVES, true), hp: n(0, 440), maxHp: n(200, 440, true), credits: n(0, 10000000, true),
       score: n(0, 100000000, true), kills: n(0, 10000, true), angle: n(-100, 100),
       cannonCooldown: n(0, 4), gunCooldown: n(0, 1), recoil: n(0, 1), shield: n(0, 8), freeze: n(0, 7),
-      gunHeat: n(0, 100), overheated: bool, spawnLeft: n(0, campaign.MAX_ENEMIES, true), total: n(0, campaign.MAX_ENEMIES, true),
+      spawnLeft: n(0, campaign.MAX_ENEMIES, true), total: n(0, campaign.MAX_ENEMIES, true),
       destroyed: n(0, campaign.MAX_ENEMIES, true), spawnTimer: n(-1000000, 10), elapsed: n(0, 10000000),
       lastReward: n(0, 10000, true), event: n(0, 10000000, true)
     });
@@ -43,9 +43,15 @@
       primary:v=>!!weapons.find('primary',v),secondary:v=>!!weapons.find('secondary',v)
     });
     for(const slot of ['primary','secondary'])if(weapons.find(slot,state.loadout[slot]).wave>weapons.unlockWave(state))throw new Error('武器尚未解锁');
+    const magazine=weapons.find('secondary',state.loadout.secondary).magazine;
+    // Legacy heat-based saves begin with a full magazine; all other battle state survives.
+    state.gunAmmo=s.gunAmmo===undefined?magazine:s.gunAmmo;
+    state.gunReload=s.gunReload===undefined?0:s.gunReload;
+    if(!n(0,magazine,true)(state.gunAmmo)||!n(0,4)(state.gunReload)||state.gunReload>0&&state.gunAmmo!==0)
+      throw new Error('副武器弹药数据无效');
     state.aim = object(s.aim, { x: n(-120, 1080), y: n(-75, 675) });
     state.enemies = list(s.enemies, { ...position, id: n(0, 100000, true), type: one(Object.keys(campaign.TYPES)),
-      hp: n(0, 10000), maxHp: n(1, 10000), speed: n(1, 100), radius: n(1, 50), reward: n(0, 1000), damage: n(0, 100),
+      hp: n(0, 10000), maxHp: n(1, 10000), speed: n(1, 100), radius: n(1, 60), reward: n(0, 1000), damage: n(0, 100),
       interval: n(.1, 10), range: n(0, 500), angle: n(-100, 100), cooldown: n(-1, 10), turn: one([-1, 1]), age: n(0, 10000000), flash: n(0, 1), submerged: bool }, campaign.MAX_ENEMIES);
     state.enemies.forEach((enemy,i)=>{
       enemy.chill=s.enemies[i].chill??0;enemy.barrier=s.enemies[i].barrier??(enemy.type==='guardian'?100:0);
