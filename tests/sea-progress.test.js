@@ -44,6 +44,21 @@ function fixture(user = null) {
   return {window,document,globals,get game(){return activeGame;},setTouch:v=>touch=v,dialog,element,writes,reads,action,flush,drawings,wakeDrawings,frames,frame,art,setReadFailure:v=>failRead=v,setWriteFailure:v=>failWrite=v,setSnapshot:v=>snapshot=v};
 }
 
+test('help pauses combat, releases firing and closes when resuming or opening weapons',async()=>{
+  const f=fixture();await f.window.SeaDefense.open();await f.action('start');
+  f.game.trigger('secondary',true);
+  await f.element('#sea-help-toggle').emit('click');
+  assert.equal(f.element('#sea-help-panel').hidden,false);
+  assert.equal(f.game.state.paused,true);assert.equal(f.game.state.secondary,false);
+  await f.element('#sea-help-close').emit('click');
+  assert.equal(f.element('#sea-help-panel').hidden,true);assert.equal(f.game.state.paused,true);
+  await f.element('#sea-help-toggle').emit('click');await f.element('#sea-pause').emit('click');
+  assert.equal(f.element('#sea-help-panel').hidden,true);assert.equal(f.game.state.paused,false);
+  await f.element('#sea-help-toggle').emit('click');await f.element('#sea-armory-toggle').emit('click');
+  assert.equal(f.element('#sea-help-panel').hidden,true);assert.equal(f.element('#sea-armory').hidden,false);
+  await f.dialog.close();
+});
+
 test('two thumbs can steer and fire independently; extra fingers and cancellations cannot stick firing',async()=>{
   const f=fixture();f.setTouch(true);await f.window.SeaDefense.open();await f.action('start');
   const event=(id,x=90,y=50)=>({pointerId:id,button:0,clientX:x,clientY:y,preventDefault(){}});

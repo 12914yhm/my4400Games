@@ -6,12 +6,12 @@
   const dialog = document.createElement('dialog');
   dialog.id = 'sea-dialog'; dialog.setAttribute('aria-labelledby', 'sea-title');
   dialog.innerHTML = `<div id="sea-surface">
-    <header class="sea-header"><div class="sea-brand-symbol">⌖</div><div><span>ISLAND DEFENSE COMMAND</span><h2 id="sea-title">海上保卫战 <em>重制版</em></h2></div><div class="sea-header-actions"><button id="sea-fullscreen" aria-pressed="false">⛶ 全屏</button><button id="sea-sound" aria-pressed="false">音效：关</button><button id="sea-pause">Ⅱ 暂停</button><button id="sea-close" aria-label="关闭海上保卫战">×</button></div></header>
+    <header class="sea-header"><div class="sea-brand-symbol" aria-hidden="true">⌖</div><div><h2 id="sea-title">海上保卫战</h2></div><div class="sea-header-actions"><button id="sea-help-toggle" aria-expanded="false" aria-controls="sea-help-panel">玩法</button><button id="sea-fullscreen" aria-pressed="false">⛶ 全屏</button><button id="sea-sound" aria-pressed="false">音效：关</button><button id="sea-pause">Ⅱ 暂停</button><button id="sea-close" aria-label="关闭海上保卫战">×</button></div></header>
     <div id="sea-display-status" role="status" hidden></div><div class="sea-layout"><section class="sea-main" aria-label="海战战场"><div class="sea-hud"><div class="sea-hp"><span>基地耐久 <b id="sea-hp-number">200 / 200</b></span><div class="sea-health-track"><i id="sea-hp-bar"></i></div></div><div><span>波次</span><strong id="sea-wave">01 <small>/ 08</small></strong></div><div><span>资金</span><strong id="sea-credits">100</strong></div><div><span>得分</span><strong id="sea-score">0</strong></div></div>
       <div class="sea-stage"><canvas width="960" height="600" tabindex="0" aria-label="海战画布：鼠标瞄准，按住左键副武器射击，空格发射主武器。触屏按住目标射击。"></canvas><div class="sea-corner-label">NORTH SEA / SECTOR 07</div><div class="sea-wave-label" id="sea-wave-label">防御系统已就绪</div><div class="sea-overlay"></div></div>
-      <div class="sea-weapons"><div class="sea-weapon" id="sea-heat-meter"><span>副武器温度 <b id="sea-heat-value">热量 0%</b></span><div class="sea-weapon-track" id="sea-heat-track" role="progressbar" aria-label="副武器热量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="sea-heat-bar"></i></div><small>松手散热 · 降至 30% 解除过热</small></div><div class="sea-weapon"><span>主武器装填 <b id="sea-reload-value">可发射</b></span><div class="sea-weapon-track" id="sea-reload-track" role="progressbar" aria-label="主炮装填进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="sea-reload-bar"></i></div><small>空格 / 主炮按钮 · 按住持续发射</small></div></div><div class="sea-battle-controls"><button id="sea-cannon" aria-label="按住发射主炮"><span>◎ 主炮</span><small id="sea-cannon-status">就绪 · 按住发射</small><i id="sea-cannon-bar"></i></button><div class="sea-items">${ITEMS.map((item,i)=>`<button data-sea-item="${i}" title="${item.description}"><kbd>${i+1}</kbd><span>${item.name}</span><b id="sea-item-${i}">1</b></button>`).join('')}</div></div>
+      <div class="sea-weapons"><div class="sea-weapon" id="sea-heat-meter"><span>机枪热量 <b id="sea-heat-value">热量 0%</b></span><div class="sea-weapon-track" id="sea-heat-track" role="progressbar" aria-label="副武器热量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="sea-heat-bar"></i></div><small>松手散热 · 降至 30% 解除过热</small></div><div class="sea-weapon"><span>主炮装填 <b id="sea-reload-value">可发射</b></span><div class="sea-weapon-track" id="sea-reload-track" role="progressbar" aria-label="主炮装填进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="sea-reload-bar"></i></div><small>空格 / 主炮按钮 · 按住持续发射</small></div></div><div class="sea-battle-controls"><button id="sea-cannon" aria-label="按住发射主炮"><span>◎ 主炮</span><small id="sea-cannon-status">就绪 · 按住发射</small><i id="sea-cannon-bar"></i></button><div class="sea-items">${ITEMS.map((item,i)=>`<button data-sea-item="${i}" title="${item.description}"><kbd>${i+1}</kbd><span>${item.name}</span><b id="sea-item-${i}">1</b></button>`).join('')}</div></div>
       <p class="sea-message" role="status">守住中央炮台，抵御来自四面八方的敌舰。</p>
-    </section><aside class="sea-sidebar"><div class="sea-operation"><span class="sea-kicker">OPERATION 01</span><h3>深海防线</h3><p>四面皆海，无处后退。<br>你的炮台，是最后一道防线。</p><div class="sea-radar" aria-hidden="true"><i></i><b>+</b><span></span></div></div><div class="sea-intel"><h4>战场情报 <span>LIVE</span></h4><dl><div><dt>剩余敌舰</dt><dd id="sea-remaining">—</dd></div><div><dt>累计击沉</dt><dd id="sea-kills">0</dd></div><div><dt>当前最高分</dt><dd id="sea-best">0</dd></div></dl></div><div class="sea-manual"><h4>操作指南</h4><p><kbd>鼠标</kbd> 转动炮台瞄准</p><p><kbd>左键</kbd> 按住使用副武器</p><p><kbd>空格</kbd> 发射范围伤害主炮</p><p><kbd>1–4</kbd> 使用战术道具</p><p><kbd>P</kbd> 暂停 / 继续</p><small>潜艇潜航时副武器无效，使用主武器轰击。副武器可拦截敌方炮弹。</small></div><button id="sea-restart">↻ 重新部署</button><span class="sea-version">8 波防守 · 第 4、8 波旗舰来袭</span></aside></div></div>`;
+    </section><aside class="sea-sidebar" id="sea-help-panel" aria-label="玩法与战绩" hidden><div class="sea-help-heading"><h3>玩法与战绩</h3><button id="sea-help-close" aria-label="关闭玩法说明">×</button></div><div class="sea-manual"><p><kbd>鼠标 / 摇杆</kbd> 转动炮台，瞄准敌舰</p><p><kbd>按住 / 拖动</kbd> 机枪连射，松手散热</p><p><kbd>空格 / 主炮</kbd> 发射炮弹，造成范围伤害</p><p><kbd>1–4 / 道具</kbd> 维修、护盾、空袭与干扰</p><small>机枪从左右枪口平行射击；潜航的潜艇需要用主炮攻击。守住 8 波进攻，第 4、8 波会出现旗舰。</small></div><div class="sea-intel"><dl><div><dt>剩余敌舰</dt><dd id="sea-remaining">—</dd></div><div><dt>累计击沉</dt><dd id="sea-kills">0</dd></div><div><dt>最高分</dt><dd id="sea-best">0</dd></div></dl></div><button id="sea-restart">重新开始本局</button></aside></div></div>`;
   document.body.append(dialog);
   const surface = dialog.querySelector('#sea-surface');
   const saveStrip = document.createElement('div');
@@ -20,7 +20,7 @@
   dialog.querySelector('.sea-header').after(saveStrip);
   const arsenal = document.createElement('section');
   arsenal.className = 'sea-arsenal'; arsenal.setAttribute('aria-label','武器装备');
-  arsenal.innerHTML = `<div class="sea-loadout"><div><small>主武器 · 空格 / 主炮按钮</small><strong id="sea-primary-name">标准舰炮</strong></div><div><small>副武器 · 按住目标 / 左键</small><strong id="sea-secondary-name">轻型机枪</strong></div><button id="sea-armory-toggle" aria-expanded="false" aria-controls="sea-armory">武器库 <span>↗</span></button></div><p id="sea-unlock-note" class="sea-unlock-note"></p><div id="sea-armory" hidden><div class="sea-armory-heading"><span class="sea-kicker">ARSENAL / 武器库</span><small>解锁后免费装备 · 换装保留热量与冷却</small></div><div id="sea-armory-cards"></div></div>`;
+  arsenal.innerHTML = `<div class="sea-loadout"><div><small>主炮</small><strong id="sea-primary-name">标准舰炮</strong></div><div><small>机枪</small><strong id="sea-secondary-name">轻型机枪</strong></div><button id="sea-armory-toggle" aria-expanded="false" aria-controls="sea-armory">武器库 <span>↗</span></button></div><div id="sea-armory" hidden><p id="sea-unlock-note" class="sea-unlock-note"></p><div class="sea-armory-heading"><span class="sea-kicker">ARSENAL / 武器库</span><small>解锁后免费装备 · 换装保留热量与冷却</small></div><div id="sea-armory-cards"></div></div>`;
   dialog.querySelector('.sea-hud').after(arsenal);
   const touchPanel = document.createElement('div');
   touchPanel.className = 'sea-touch-panel';
@@ -85,12 +85,21 @@
     if (portrait() && game?.state.phase === 'playing' && !game.state.paused) autoPause();
   }
   let armoryOpen = false, armoryKey = '';
+  function showHelp(open) {
+    $('#sea-help-panel').hidden = !open;
+    $('#sea-help-toggle').setAttribute('aria-expanded', String(open));
+    if (open) {
+      armoryOpen = false;
+      if (game?.state.phase === 'playing') { game.pause(true); release(); audio.stop(); persist(); }
+      update(true); $('#sea-help-close').focus();
+    }
+  }
   const account = window.Accounts;
   let owner = null, revision = 0, loadingSave = false, loadError = '', saveError = '', conflict = false;
   let canSave = false, saving = null, lastSave = 0, generation = 0, savedAt = null;
   function saveBest() { if (game) best = Math.max(best, game.state.score); }
   function saveStatus() {
-    let label = '游客模式 · 本局进度不保存', action = '登录保存进度';
+    let label = '游客模式 · 不保存进度', action = '登录存档';
     if (owner) {
       label = loadingSave ? '正在读取账号存档…' : loadError || saveError || (saving ? '正在保存进度…' : savedAt ? `已保存 · ${new Date(savedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '账号存档已就绪 · 游玩时自动保存');
       action = loadError || conflict ? '重新读取' : saveError ? '重试保存' : '保存进度';
@@ -144,12 +153,12 @@
   }
   function reset() {
     saveBest(); release(); audio.stop(); game = window.SeaEngine.create(); restartConfirm = false;
-    armoryOpen=false;armoryKey='';lastPhase = ''; overlayKey = ''; lastTime = 0; update(true);
+    showHelp(false);armoryOpen=false;armoryKey='';lastPhase = ''; overlayKey = ''; lastTime = 0; update(true);
   }
   function startPlay() {
     if(portrait()){mobileLayout();return;}
     if (art.status === 'loading' || loadingSave || loadError) return;
-    armoryOpen=false;
+    showHelp(false);armoryOpen=false;
     audio.unlock();
     if (game.state.phase === 'ready') {
       game.start(); if (!played) { played = true; onPlay?.(); }
@@ -222,7 +231,7 @@
       const i = Number(button.dataset.seaItem); text(`#sea-item-${i}`, s.items[i]);
       button.disabled = s.phase !== 'playing' || s.paused || s.items[i] === 0 || (i === 0 && s.hp >= s.maxHp) || (i === 1 && s.shield > 0) || (i === 3 && s.freeze > 0);
     });
-    text('#sea-wave-label', s.phase === 'playing' ? `第 ${s.wave} 波  /  击沉 ${s.destroyed} · 共 ${s.total} · 增援 ${s.spawnLeft}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : '防御系统已就绪');
+    text('#sea-wave-label', s.phase === 'playing' ? `本波击沉 ${s.destroyed} / ${s.total}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : '防御系统已就绪');
     const key = s.phase + ':' + s.paused + ':' + restartConfirm + ':' + art.status + ':' + loadingSave + ':' + loadError;
     if (!force && key === overlayKey) return;
     overlayKey = key;
@@ -230,7 +239,7 @@
     overlay.classList.toggle('sea-ready', s.phase === 'ready');
     if (overlay.hidden) { overlay.innerHTML = ''; return; }
     if (loadingSave || loadError) {
-      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">CLOUD SAVE</span><h3>${loadingSave ? '正在读取进度' : '暂时无法读取存档'}</h3><p>${loadingSave ? '准备好后，即可继续守卫海域。' : '已有存档不会被覆盖。请点击上方“重新读取”重试。'}</p></div>`;
+      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">CLOUD SAVE</span><h3>${loadingSave ? '正在读取进度' : '暂时无法读取存档'}</h3><p>${loadingSave ? '准备好后，即可继续守卫海域。' : '已有存档不会被覆盖。请点击“重新读取”重试。'}</p></div>`;
       return;
     }
     if (art.status === 'loading') {
@@ -242,7 +251,7 @@
     } else if (s.paused) {
       overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">STAND BY</span><h3>战场已暂停</h3><p>${owner ? '账号进度已载入，准备好再继续。' : '喘口气，准备好再继续。'}</p><button class="sea-primary" data-sea-action="start">继续战斗 →</button></div>`;
     } else if (s.phase === 'ready') {
-      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">THE LAST LINE OF DEFENSE</span><div class="sea-intro-emblem">⌖</div><h3>海上保卫战</h3><p>一座炮台，整片海域。<br>击沉敌舰、升级火力，守住最后的防线。</p><div class="sea-intro-instructions"><span><kbd>左键</kbd> 副武器连射</span><span><kbd>空格</kbd> 主炮轰击</span><span><kbd>1–4</kbd> 战术支援</span></div><button class="sea-primary" data-sea-action="start">开始保卫战 <span>→</span></button><small>触屏：按住目标射击，下方按钮发射主炮 · 横屏体验更佳</small></div>`;
+      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">THE LAST LINE OF DEFENSE</span><div class="sea-intro-emblem">⌖</div><h3>守住这片海</h3><p>击退 8 波敌舰，升级你的海上防线。</p><div class="sea-intro-instructions"><span><kbd>左键</kbd> 副武器连射</span><span><kbd>空格</kbd> 主炮轰击</span><span><kbd>1–4</kbd> 战术支援</span></div><button class="sea-primary" data-sea-action="start">开始战斗 <span>→</span></button><small>触屏：按住目标射击，下方按钮发射主炮 · 横屏体验更佳</small></div>`;
     } else if (s.phase === 'shop') overlay.innerHTML = shopMarkup();
     else {
       const won = s.phase === 'victory';
@@ -386,8 +395,9 @@
   $('#sea-rotate-close').addEventListener('click',()=>dialog.close());
   cannon.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();game.trigger('primary',true);}});
   cannon.addEventListener('keyup',event=>{if(event.key==='Enter')game.trigger('primary',false);});
-  function togglePause(){if(game.state.phase!=='playing'||portrait())return;restartConfirm=false;game.pause();release();if(game.state.paused){audio.stop();persist();}else {armoryOpen=false;audio.unlock();}lastTime=0;update(true);}
+  function togglePause(){if(game.state.phase!=='playing'||portrait())return;restartConfirm=false;game.pause();release();if(game.state.paused){audio.stop();persist();}else {showHelp(false);armoryOpen=false;audio.unlock();}lastTime=0;update(true);}
   dialog.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&!$('#sea-help-panel').hidden){event.preventDefault();showHelp(false);$('#sea-help-toggle').focus();return;}
     if(event.key.toLowerCase()==='p'){event.preventDefault();if(!event.repeat)togglePause();return;}
     if(game.state.phase!=='playing'||game.state.paused)return;
     if(event.code==='Space'){event.preventDefault();game.trigger('primary',true);}
@@ -405,14 +415,16 @@
     if(action==='reset'){if(owner && !(await persist()))return;reset();persist();}
     if(action==='cancel'){restartConfirm=false;game.pause(false);audio.unlock();overlayKey='';update(true);}
   });
+  $('#sea-help-toggle').addEventListener('click',()=>showHelp($('#sea-help-panel').hidden));
+  $('#sea-help-close').addEventListener('click',()=>{showHelp(false);$('#sea-help-toggle').focus();});
   $('#sea-pause').addEventListener('click',togglePause);
   $('#sea-armory-toggle').addEventListener('click',()=>{
-    armoryOpen=!armoryOpen;
+    showHelp(false);armoryOpen=!armoryOpen;
     if(armoryOpen&&game.state.phase==='playing'){game.pause(true);release();audio.stop();persist();}
     update(true);
   });
   $('#sea-close').addEventListener('click',()=>dialog.close());
-  $('#sea-restart').addEventListener('click',()=>{if(game.state.phase==='ready'){reset();return;}restartConfirm=true;game.pause(true);audio.stop();release();update(true);});
+  $('#sea-restart').addEventListener('click',()=>{showHelp(false);if(game.state.phase==='ready'){reset();return;}restartConfirm=true;game.pause(true);audio.stop();release();update(true);});
   $('#sea-sound').addEventListener('click',()=>{audio.setEnabled(!audio.enabled);update();});
   dialog.addEventListener('close',()=>{release();cancelAnimationFrame(raf);saveBest();audio.stop();game?.drainSounds();persist();displayRequest++;if(ownsOrientation){ownsOrientation=false;try{window.screen?.orientation?.unlock?.();}catch{}}if(ownsFullscreen){ownsFullscreen=false;document.exitFullscreen?.().catch(()=>{});}});
   function autoPause(){if(dialog.open){audio.stop();game.drainSounds();if(game.state.phase==='playing'){game.pause(true);release();update(true);}persist();}}
