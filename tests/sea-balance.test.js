@@ -29,6 +29,7 @@ test('difficulty changes enemy strength and limits how many ships arrive togethe
 test('full repair is a priced between-wave service and keeps the rest of the save intact', () => {
   const game = Engine.create();
   game.start(); game.state.phase = 'shop'; game.state.hp = 42; game.state.credits = 200;
+  assert.equal(game.setDifficulty('low'), true);
   const cost = game.price('fullRepair');
   assert.ok(cost >= 40 && cost <= 200);
   assert.equal(game.purchase('fullRepair'), true);
@@ -38,6 +39,7 @@ test('full repair is a priced between-wave service and keeps the rest of the sav
   assert.equal(game.snapshot().state.hp, game.state.maxHp);
   game.state.phase = 'playing'; game.state.hp = 1;
   assert.equal(game.purchase('fullRepair'), false);
+  assert.equal(game.setDifficulty('high'), false);
 });
 
 test('expanded camera allows aiming at visible outer sea and accepts old saves', () => {

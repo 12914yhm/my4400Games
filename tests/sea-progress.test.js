@@ -148,6 +148,9 @@ test('between-wave shop offers a full repair that immediately restores maximum h
   const account=fixture({id:'test-user'});account.setSnapshot(g.snapshot());
   await account.window.SeaDefense.open();
   assert.match(account.element('.sea-overlay').innerHTML,/全面修复/);
+  assert.match(account.element('.sea-overlay').innerHTML,/下一波难度/);
+  await account.dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-difficulty]'?{dataset:{seaDifficulty:'low'}}:null}});
+  assert.equal(account.game.state.difficulty,'low');
   await account.dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-buy]'?{dataset:{seaBuy:'fullRepair'}}:null}});
   await account.flush();assert.equal(account.game.state.hp,account.game.state.maxHp);
   await account.dialog.close();await account.flush();

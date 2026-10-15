@@ -87,7 +87,7 @@
       state.angle = Math.atan2(state.aim.y - CY, state.aim.x - CX);
     }
     function setDifficulty(value) {
-      if (state.phase !== 'ready' || !DIFFICULTIES[value]) return false;
+      if (!['ready','shop'].includes(state.phase) || !DIFFICULTIES[value]) return false;
       state.difficulty = value;
       return true;
     }
