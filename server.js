@@ -8,14 +8,15 @@ const artFiles = ['index.html', 'manifest.json', 'PROMPTS.md', 'README.md', 'oce
 routes['/art/sea/'] = 'assets/sea/v1/index.html';
 routes['/sea-art.js'] = 'sea-art.js';
 routes['/sea-audio.js'] = 'sea-audio.js';
-for (const file of ['accounts.js', 'accounts.css', 'sea-save.js', 'sea-weapons.js']) routes['/' + file] = file;
+for (const file of ['accounts.js', 'accounts.css', 'sea-save.js', 'sea-weapons.js', 'sea-campaign.js']) routes['/' + file] = file;
 routes['/art/sea/ocean-battlefield-v2.png'] = 'assets/sea/v1/ocean-battlefield-v2.png';
 for (const file of artFiles) routes['/art/sea/' + file] = 'assets/sea/v1/' + file;
 for (const id of ['cannon','spread','howitzer','machinegun','twin','rapid']) {
   const file = 'weapon-' + id + '-v1.png';
   routes['/art/sea/' + file] = 'assets/sea/weapons-v1/' + file;
 }
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
+for(const id of ['weapon-laser','weapon-railgun','weapon-plasma','weapon-cryo','weapon-tesla','raider','missile','guardian','tender','dreadnought'])routes['/art/sea/'+id+'-v1.svg']='assets/sea/expansion/'+id+'-v1.svg';
+const types = { '.svg':'image/svg+xml', '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 function createServer(options = {}) {
 const api = createAPI(options);
 return http.createServer(async (req, res) => {

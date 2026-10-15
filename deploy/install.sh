@@ -70,6 +70,10 @@ sudo -n tar -xzf "$stage/backend.tar.gz" -C "$backend_target"
 sudo -n find "$backend_target" -type d -exec chmod 755 {} +
 sudo -n find "$backend_target" -type f -exec chmod 644 {} +
 sudo -n install -d -m 700 -o admin -g admin /var/lib/play-island
+# Keep a consistent private data backup before shared save schemas change.
+if systemctl is-active --quiet play-island-api; then sudo -n systemctl stop play-island-api; fi
+sudo -n cp -a /var/lib/play-island "$backup/account-data"
+sudo -n chmod 700 "$backup/account-data"
 sudo -n ln -s "$backend_target" "$backend/current-$release"
 sudo -n mv -Tf "$backend/current-$release" "$backend/current"
 sudo -n install -m 644 "$stage/play-island-api.service" "$unit"

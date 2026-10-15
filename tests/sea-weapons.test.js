@@ -15,21 +15,22 @@ test('weapons unlock for the next wave during resupply, never before its boundar
   g.state.wave=5;assert.equal(g.equip('primary','howitzer'),true);
   assert.equal(g.equip('secondary','howitzer'),false);assert.equal(g.equip('unknown','cannon'),false);
 });
-test('all six weapons have real shot patterns, damage, speed and resource costs',()=>{
+test('all weapons have real shot patterns, damage, speed and resource costs',()=>{
   for(const [slot,weapons] of Object.entries(WEAPONS))for(const weapon of weapons){
     const g=Engine.create();g.state.wave=weapon.wave;
     if(weapon.wave>1)assert.equal(g.equip(slot,weapon.id),true);
     g.start();g.setAim(820,300);g.trigger(slot,true);
-    assert.equal(g.state.bullets.length,weapon.count,weapon.id);
+    assert.equal(g.state.bullets.length,weapon.mode?0:weapon.count,weapon.id);
+    if(weapon.mode)assert.ok(g.state.effects.some(e=>e.kind==='beam'),weapon.id);
     for(const b of g.state.bullets){assert.equal(b.weapon,weapon.id);assert.equal(b.damage,weapon.damage);assert.ok(Math.abs(Math.hypot(b.vx,b.vy)-weapon.speed)<.001);}
     if(weapon.count>1 && slot==='primary')assert.notEqual(g.state.bullets[0].vy,g.state.bullets.at(-1).vy);
     if(weapon.count>1 && slot==='secondary'){
       assert.equal(g.state.bullets[0].vy,g.state.bullets.at(-1).vy);
       assert.notEqual(g.state.bullets[0].y,g.state.bullets.at(-1).y);
     }
-    if(slot==='primary'){assert.equal(g.state.cannonCooldown,weapon.interval);assert.equal(g.state.bullets[0].radius,weapon.radius);}
+    if(slot==='primary'){assert.equal(g.state.cannonCooldown,weapon.interval);if(!weapon.mode)assert.equal(g.state.bullets[0].radius,weapon.radius);}
     else {assert.equal(g.state.gunHeat,weapon.heat);assert.equal(g.state.gunCooldown,weapon.interval);}
-    assert.equal(g.snapshot().state.bullets[0].weapon,weapon.id);
+    if(!weapon.mode)assert.equal(g.snapshot().state.bullets[0].weapon,weapon.id);
   }
 });
 test('switching requires pause and cannot clear cooldown, heat or overheat lock',()=>{
@@ -63,12 +64,14 @@ test('legacy saves migrate while forged and premature weapon selections are reje
 test('a full campaign using newly unlocked weapons can be completed and saved throughout',()=>{
   let seed=81;const g=Engine.create(()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;});g.start();
   const used=new Set();
-  for(let frame=0;frame<120*500&&!['over','victory'].includes(g.state.phase);frame++){
+  for(let frame=0;frame<120*1200&&!['over','victory'].includes(g.state.phase);frame++){
     const s=g.state;
     if(s.phase==='shop'){
       for(const id of ['power','rate','armor','cannon'])g.purchase(id);
-      if(s.hp<s.maxHp-60)g.purchase('repair');
-      for(const [slot,list] of Object.entries(WEAPONS))g.equip(slot,list.filter(w=>w.wave<=unlockWave(s)).at(-1).id);
+      while(s.items[0]<3&&g.purchase('repair')){}
+      while(s.items[2]<2&&g.purchase('airstrike')){}
+      while(s.items[1]<2&&g.purchase('shield')){}
+      for(const [slot,list] of Object.entries(WEAPONS))g.equip(slot,list.filter(w=>w.wave<=unlockWave(s)).sort((a,b)=>a.wave-b.wave).at(-1).id);
       g.nextWave();
     }
     Object.values(s.loadout).forEach(id=>used.add(id));
@@ -77,5 +80,5 @@ test('a full campaign using newly unlocked weapons can be completed and saved th
     if(s.hp<s.maxHp-65)g.useItem(0);if(s.hp<70)g.useItem(1);if(s.enemies.length>5)g.useItem(2);
     g.step(1/120);if(frame%120===0)g.snapshot();
   }
-  assert.equal(g.state.phase,'victory',`wave ${g.state.wave}, hp ${g.state.hp}`);assert.equal(used.size,6);
+  assert.equal(g.state.phase,'victory',`wave ${g.state.wave}, hp ${g.state.hp}`);assert.equal(used.size,11);
 });

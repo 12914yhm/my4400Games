@@ -18,6 +18,8 @@ def verify(entry):
         assert hashlib.sha256(data).hexdigest() == expected, name + ': checksum mismatch'
         if name.endswith('.png'):
             assert response.headers.get_content_type() == 'image/png', name
+        if name.endswith('.svg'):
+            assert response.headers.get_content_type() == 'image/svg+xml', name
         return {'file': name, 'status': 200, 'bytes': len(data), 'sha256': expected}
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:

@@ -254,3 +254,15 @@
   #sea-stick { width: 78px; height: 78px; }
 }
 @media (prefers-reduced-motion:reduce) { #sea-dialog button { transition: none; } }
+
+/* Campaign route stays inside the on-demand help panel. */
+.sea-route-panel { margin: 16px 0; border-top: 1px solid #ffffff18; padding-top: 16px; }
+.sea-route-panel summary { cursor: pointer; font-size: 13px; color: #c5e5d8; min-height: 32px; }
+#sea-route { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#sea-route li { padding: 10px; border: 1px solid #ffffff12; border-radius: 8px; background: #ffffff03; }
+#sea-route small, #sea-route strong, #sea-route span { display: block; }
+#sea-route small { font-size: 9px; color: #9db9bc; }
+#sea-route strong { font-size: 12px; font-weight: 500; margin: 5px 0; }
+#sea-route span { font-size: 10px; color: #91acae; }
+#sea-route li.current { border-color: #97d9c4; background: #8cd8b812; }
+#sea-route li.complete span { color: #8dd2b4; }

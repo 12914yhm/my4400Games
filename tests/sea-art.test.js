@@ -26,13 +26,13 @@ function fixture() {
 test('art is lazy, shares one load and renders every enemy and explosion endpoint', async () => {
   const f = fixture(); assert.equal(f.requests.length, 0);
   const pending = f.art.load(); assert.equal(f.art.load(), pending);
-  assert.equal(f.requests.length, 15);
+  assert.equal(f.requests.length, 25);
   f.requests.forEach(image => image.onload()); await pending;
-  assert.equal(f.art.status, 'ready'); assert.equal(f.art.loaded, 15); assert.equal(f.timers.size, 0);
+  assert.equal(f.art.status, 'ready'); assert.equal(f.art.loaded, 25); assert.equal(f.timers.size, 0);
   const ctx = f.context();
   assert.equal(f.art.ocean(ctx, 960, 600), true);
   assert.equal(f.art.battery(ctx, 480, 300, Math.PI, .18), true);
-  for (const type of ['patrol', 'fast', 'armored', 'submarine', 'boss']) {
+  for (const type of Object.keys(require('../sea-engine').TYPES)) {
     assert.equal(f.art.ship(ctx, { type, radius: 24, flash: .09 }), true);
   }
   for (const age of [0, .3, .599, .6, .8]) {
@@ -44,7 +44,7 @@ test('a failed sprite permits play and requests fallback only for missing art', 
   const f = fixture(), pending = f.art.load();
   f.requests.forEach(image => image.url.includes('patrol-boat') ? image.onerror() : image.onload());
   await pending;
-  assert.equal(f.art.status, 'partial'); assert.equal(f.art.loaded, 14);
+  assert.equal(f.art.status, 'partial'); assert.equal(f.art.loaded, 24);
   assert.equal(f.art.ship(f.context(), { type: 'patrol', radius: 17 }), false);
   assert.equal(f.art.ship(f.context(), { type: 'boss', radius: 37 }), true);
   assert.equal(f.timers.size, 0);

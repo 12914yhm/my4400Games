@@ -1,17 +1,17 @@
 (function () {
   'use strict';
-  const { W, H, CX, CY, WAVES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, unlockWave } = window.SeaEngine;
+  const { W, H, CX, CY, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, SIDE_GUN, unlockWave } = window.SeaEngine;
   const art = window.SeaArt;
   const audio = window.SeaAudio.create();
   const dialog = document.createElement('dialog');
   dialog.id = 'sea-dialog'; dialog.setAttribute('aria-labelledby', 'sea-title');
   dialog.innerHTML = `<div id="sea-surface">
     <header class="sea-header"><div class="sea-brand-symbol" aria-hidden="true">⌖</div><div><h2 id="sea-title">海上保卫战</h2></div><div class="sea-header-actions"><button id="sea-help-toggle" aria-expanded="false" aria-controls="sea-help-panel">玩法</button><button id="sea-fullscreen" aria-pressed="false">⛶ 全屏</button><button id="sea-sound" aria-pressed="false">音效：关</button><button id="sea-pause">Ⅱ 暂停</button><button id="sea-close" aria-label="关闭海上保卫战">×</button></div></header>
-    <div id="sea-display-status" role="status" hidden></div><div class="sea-layout"><section class="sea-main" aria-label="海战战场"><div class="sea-hud"><div class="sea-hp"><span>基地耐久 <b id="sea-hp-number">200 / 200</b></span><div class="sea-health-track"><i id="sea-hp-bar"></i></div></div><div><span>波次</span><strong id="sea-wave">01 <small>/ 08</small></strong></div><div><span>资金</span><strong id="sea-credits">100</strong></div><div><span>得分</span><strong id="sea-score">0</strong></div></div>
+    <div id="sea-display-status" role="status" hidden></div><div class="sea-layout"><section class="sea-main" aria-label="海战战场"><div class="sea-hud"><div class="sea-hp"><span>基地耐久 <b id="sea-hp-number">200 / 200</b></span><div class="sea-health-track"><i id="sea-hp-bar"></i></div></div><div><span>波次</span><strong id="sea-wave">01 <small>/ ${WAVES}</small></strong></div><div><span>资金</span><strong id="sea-credits">100</strong></div><div><span>得分</span><strong id="sea-score">0</strong></div></div>
       <div class="sea-stage"><canvas width="960" height="600" tabindex="0" aria-label="海战画布：鼠标瞄准，按住左键副武器射击，空格发射主武器。触屏按住目标射击。"></canvas><div class="sea-corner-label">NORTH SEA / SECTOR 07</div><div class="sea-wave-label" id="sea-wave-label">防御系统已就绪</div><div class="sea-overlay"></div></div>
       <div class="sea-weapons"><div class="sea-weapon" id="sea-heat-meter"><span>机枪热量 <b id="sea-heat-value">热量 0%</b></span><div class="sea-weapon-track" id="sea-heat-track" role="progressbar" aria-label="副武器热量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="sea-heat-bar"></i></div><small>松手散热 · 降至 30% 解除过热</small></div><div class="sea-weapon"><span>主炮装填 <b id="sea-reload-value">可发射</b></span><div class="sea-weapon-track" id="sea-reload-track" role="progressbar" aria-label="主炮装填进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="sea-reload-bar"></i></div><small>空格 / 主炮按钮 · 按住持续发射</small></div></div><div class="sea-battle-controls"><button id="sea-cannon" aria-label="按住发射主炮"><span>◎ 主炮</span><small id="sea-cannon-status">就绪 · 按住发射</small><i id="sea-cannon-bar"></i></button><div class="sea-items">${ITEMS.map((item,i)=>`<button data-sea-item="${i}" title="${item.description}"><kbd>${i+1}</kbd><span>${item.name}</span><b id="sea-item-${i}">1</b></button>`).join('')}</div></div>
       <p class="sea-message" role="status">守住中央炮台，抵御来自四面八方的敌舰。</p>
-    </section><aside class="sea-sidebar" id="sea-help-panel" aria-label="玩法与战绩" hidden><div class="sea-help-heading"><h3>玩法与战绩</h3><button id="sea-help-close" aria-label="关闭玩法说明">×</button></div><div class="sea-manual"><p><kbd>鼠标 / 摇杆</kbd> 转动炮台，瞄准敌舰</p><p><kbd>按住 / 拖动</kbd> 机枪连射，松手散热</p><p><kbd>空格 / 主炮</kbd> 发射炮弹，造成范围伤害</p><p><kbd>1–4 / 道具</kbd> 维修、护盾、空袭与干扰</p><small>机枪从左右枪口平行射击；潜航的潜艇需要用主炮攻击。守住 8 波进攻，第 4、8 波会出现旗舰。</small></div><div class="sea-intel"><dl><div><dt>剩余敌舰</dt><dd id="sea-remaining">—</dd></div><div><dt>累计击沉</dt><dd id="sea-kills">0</dd></div><div><dt>最高分</dt><dd id="sea-best">0</dd></div></dl></div><button id="sea-restart">重新开始本局</button></aside></div></div>`;
+    </section><aside class="sea-sidebar" id="sea-help-panel" aria-label="玩法与战绩" hidden><div class="sea-help-heading"><h3>玩法与战绩</h3><button id="sea-help-close" aria-label="关闭玩法说明">×</button></div><div class="sea-manual"><p><kbd>鼠标 / 摇杆</kbd> 转动炮台，瞄准敌舰</p><p><kbd>按住 / 拖动</kbd> 机枪连射，松手散热</p><p><kbd>空格 / 主炮</kbd> 发射当前装备的主武器</p><p><kbd>1–4 / 道具</kbd> 维修、护盾、空袭与干扰</p><small>机枪从左右枪口平行射击；潜航的潜艇需要用主炮攻击。守住 ${WAVES} 波进攻，每 4 波有旗舰来袭。</small></div><details class="sea-route-panel"><summary>战役航线 · ${WAVES} 关</summary><ol id="sea-route"></ol></details><div class="sea-intel"><dl><div><dt>剩余敌舰</dt><dd id="sea-remaining">—</dd></div><div><dt>累计击沉</dt><dd id="sea-kills">0</dd></div><div><dt>最高分</dt><dd id="sea-best">0</dd></div></dl></div><button id="sea-restart">重新开始本局</button></aside></div></div>`;
   document.body.append(dialog);
   const surface = dialog.querySelector('#sea-surface');
   const saveStrip = document.createElement('div');
@@ -173,20 +173,21 @@
       const maxed = s.upgrades[id] >= item.max, cost = game.price(id);
       return `<button class="sea-shop-card" data-sea-buy="${id}" ${maxed || s.credits < cost ? 'disabled' : ''}><span>${item.name}<small>Lv.${s.upgrades[id]}</small></span><p>${item.description}</p><b>${maxed ? '已满级' : `◈ ${cost}`}</b></button>`;
     }).concat(ITEMS.map((item, i) => `<button class="sea-shop-card consumable" data-sea-buy="${item.id}" ${s.credits < item.price || s.items[i] >= 5 ? 'disabled' : ''}><span>${item.name}<small>持有 ${s.items[i]}/5</small></span><p>${item.description}</p><b>${s.items[i] >= 5 ? '已满库存' : `◈ ${item.price}`}</b></button>`));
-    return `<div class="sea-shop"><span class="sea-kicker">WAVE ${String(s.wave).padStart(2,'0')} COMPLETE</span><h3>海域肃清，整备再出发。</h3><p class="sea-overlay-copy">过关奖励 +${s.lastReward} · 可用资金 <strong>${s.credits}</strong> · 当前耐久 ${Math.ceil(s.hp)}/${s.maxHp}</p><div class="sea-shop-grid">${cards.join('')}</div><button class="sea-primary" data-sea-action="start">开始第 ${s.wave + 1} 波 <span>→</span></button><small class="sea-shop-note">维修包购买后，下一波按 1 使用。装甲升级会立即恢复耐久。</small></div>`;
+    return `<div class="sea-shop"><span class="sea-kicker">WAVE ${String(s.wave).padStart(2,'0')} COMPLETE</span><h3>海域肃清，整备再出发。</h3><p class="sea-overlay-copy">奖励 +${s.lastReward} · 自动修复 25 · 资金 <strong>${s.credits}</strong> · 当前耐久 ${Math.ceil(s.hp)}/${s.maxHp}</p><div class="sea-shop-grid">${cards.join('')}</div><button class="sea-primary" data-sea-action="start">开始第 ${s.wave + 1} 波 <span>→</span></button><small class="sea-shop-note">下一关 · ${LEVELS[Math.min(s.wave,WAVES-1)].name}：${LEVELS[Math.min(s.wave,WAVES-1)].hint}</small></div>`;
   }
   function weaponIcon(id) {
-    return `<img class="sea-weapon-art" src="./art/sea/weapon-${id}-v1.png" alt="" width="160" height="160" decoding="async">`;
+    return `<img class="sea-weapon-art" src="./art/sea/weapon-${id}-v1${['laser','railgun','plasma','cryo','tesla'].includes(id)?'.svg':'.png'}" alt="" width="160" height="160" decoding="async">`;
   }
   function updateArsenal() {
     const s=game.state, available=unlockWave(s), all=Object.values(WEAPONS).flat();
     const key=[armoryOpen,s.phase,s.paused,s.wave,s.loadout.primary,s.loadout.secondary,...Object.values(s.upgrades),loadingSave,loadError].join(':');
     if(key===armoryKey)return;armoryKey=key;
+    $('#sea-route').innerHTML=LEVELS.map(level=>`<li class="${level.wave<s.wave?'complete':level.wave===s.wave?'current':''}" title="${level.hint}"><small>${level.wave<10?'0':''}${level.wave} · ${level.chapter}</small><strong>${level.name}</strong><span>${level.wave<s.wave?'已通过':level.wave===s.wave?'当前关卡':level.wave%4===0?'旗舰战':'待挑战'}</span></li>`).join('');
     text('#sea-primary-name',game.weaponStats('primary').name);text('#sea-secondary-name',game.weaponStats('secondary').name);
     text('#sea-cannon span','◎ '+game.weaponStats('primary').name);
     const next=all.filter(w=>w.wave>available).sort((a,b)=>a.wave-b.wave)[0];
     const fresh=all.filter(w=>w.wave===available&&w.wave>1);
-    text('#sea-unlock-note',`${all.filter(w=>w.wave<=available).length} / 6 已解锁${fresh.length?' · '+fresh.map(w=>w.name).join('、')+'已解锁':''}${next?' · 第 '+next.wave+' 波解锁'+next.name:' · 全部武器已开放'}`);
+    text('#sea-unlock-note',`${all.filter(w=>w.wave<=available).length} / ${all.length} 已解锁${fresh.length?' · '+fresh.map(w=>w.name).join('、')+'已解锁':''}${next?' · 第 '+next.wave+' 波解锁'+next.name:' · 全部武器已开放'}`);
     $('#sea-armory').hidden=!armoryOpen;
     dialog.classList.toggle('sea-armory-open',armoryOpen);
     text('#sea-armory-toggle',armoryOpen?'收起武器库 ↑':'武器库 ↗');
@@ -194,7 +195,7 @@
     $('#sea-armory-toggle').disabled=loadingSave||!!loadError;
     if(!armoryOpen)return;
     const canEquip=['ready','shop'].includes(s.phase)||(s.phase==='playing'&&s.paused);
-    $('#sea-armory-cards').innerHTML=Object.entries(WEAPONS).map(([slot,list])=>`<div class="sea-armory-group"><h4>${slot==='primary'?'主武器 <small>范围轰击 · 可攻击潜航潜艇</small>':'副武器 <small>持续射击 · 可拦截炮弹</small>'}</h4><div class="sea-armory-grid">${list.map(w=>{
+    $('#sea-armory-cards').innerHTML=Object.entries(WEAPONS).map(([slot,list])=>`<div class="sea-armory-group"><h4>${slot==='primary'?'主武器 <small>重火力 · 可攻击潜航潜艇</small>':'副武器 <small>持续射击 · 可拦截炮弹</small>'}</h4><div class="sea-armory-grid">${list.map(w=>{
       const locked=w.wave>available,selected=s.loadout[slot]===w.id,stats=game.weaponStats(slot,w.id);
       const label=locked?`第 ${w.wave} 波解锁`:selected?'已装备':canEquip?'装备':'已解锁';
       return `<button class="sea-armory-card ${selected?'equipped':''} ${locked?'locked':''}" data-sea-weapon="${w.id}" data-sea-slot="${slot}" aria-pressed="${selected}" ${locked||selected||!canEquip?'disabled':''} style="--weapon-color:${w.color}"><div class="sea-armory-card-top">${weaponIcon(w.icon)}<span>${locked?'未解锁':w.wave===available&&w.wave>1?'新解锁':'已解锁'}</span></div><strong>${w.name}</strong><p>${w.description}</p><div class="sea-armory-stats">伤害 ${Math.round(stats.damage*10)/10}${w.count>1?' × '+w.count:''}<span>${Number(stats.interval.toFixed(slot==='primary'?1:3))} 秒 / 次</span></div><b>${label}${!locked&&!selected&&canEquip?' →':''}</b></button>`;
@@ -207,7 +208,7 @@
     if (lastPhase !== s.phase) { if (['shop','over','victory'].includes(s.phase)) { saveBest(); if (!loadingSave) persist(); } lastPhase = s.phase; force = true; const unlocked=s.phase==='shop'?Object.values(WEAPONS).flat().filter(w=>w.wave===s.wave+1):[];notify(unlocked.length?'新武器已解锁：'+unlocked.map(w=>w.name).join('、')+'。打开武器库装备后再出发。':s.message); }
     text('#sea-hp-number', `${Math.ceil(s.hp)} / ${s.maxHp}`); $('#sea-hp-bar').style.width = `${s.hp / s.maxHp * 100}%`;
     $('#sea-hp-bar').classList.toggle('critical', s.hp / s.maxHp < .3);
-    const waveLabel = `${String(s.wave).padStart(2,'0')} <small>/ 08</small>`;
+    const waveLabel = `${String(s.wave).padStart(2,'0')} <small>/ ${WAVES}</small>`;
     if ($('#sea-wave').innerHTML !== waveLabel) $('#sea-wave').innerHTML = waveLabel;
     text('#sea-credits', s.credits); text('#sea-score', s.score); text('#sea-remaining', s.phase === 'playing' ? s.spawnLeft + s.enemies.length : '—');
     text('#sea-kills', s.kills); text('#sea-best', Math.max(best, s.score));
@@ -231,7 +232,8 @@
       const i = Number(button.dataset.seaItem); text(`#sea-item-${i}`, s.items[i]);
       button.disabled = s.phase !== 'playing' || s.paused || s.items[i] === 0 || (i === 0 && s.hp >= s.maxHp) || (i === 1 && s.shield > 0) || (i === 3 && s.freeze > 0);
     });
-    text('#sea-wave-label', s.phase === 'playing' ? `本波击沉 ${s.destroyed} / ${s.total}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : '防御系统已就绪');
+    $('#sea-wave').title=LEVELS[s.wave-1].name;
+    text('#sea-wave-label', s.phase === 'playing' ? `第 ${s.wave} 关 · ${LEVELS[s.wave-1].name} · ${s.destroyed} / ${s.total}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : `${LEVELS[s.wave-1].chapter} · ${LEVELS[s.wave-1].name}`);
     const key = s.phase + ':' + s.paused + ':' + restartConfirm + ':' + art.status + ':' + loadingSave + ':' + loadError;
     if (!force && key === overlayKey) return;
     overlayKey = key;
@@ -251,11 +253,11 @@
     } else if (s.paused) {
       overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">STAND BY</span><h3>战场已暂停</h3><p>${owner ? '账号进度已载入，准备好再继续。' : '喘口气，准备好再继续。'}</p><button class="sea-primary" data-sea-action="start">继续战斗 →</button></div>`;
     } else if (s.phase === 'ready') {
-      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">THE LAST LINE OF DEFENSE</span><div class="sea-intro-emblem">⌖</div><h3>守住这片海</h3><p>击退 8 波敌舰，升级你的海上防线。</p><div class="sea-intro-instructions"><span><kbd>左键</kbd> 副武器连射</span><span><kbd>空格</kbd> 主炮轰击</span><span><kbd>1–4</kbd> 战术支援</span></div><button class="sea-primary" data-sea-action="start">开始战斗 <span>→</span></button><small>触屏：按住目标射击，下方按钮发射主炮 · 横屏体验更佳</small></div>`;
+      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">THE LAST LINE OF DEFENSE</span><div class="sea-intro-emblem">⌖</div><h3>守住这片海</h3><p>击退 ${WAVES} 波敌舰，解锁未来科技武器。</p><div class="sea-intro-instructions"><span><kbd>左键</kbd> 副武器连射</span><span><kbd>空格</kbd> 主炮轰击</span><span><kbd>1–4</kbd> 战术支援</span></div><button class="sea-primary" data-sea-action="start">开始战斗 <span>→</span></button><small>触屏：按住目标射击，下方按钮发射主炮 · 横屏体验更佳</small></div>`;
     } else if (s.phase === 'shop') overlay.innerHTML = shopMarkup();
     else {
       const won = s.phase === 'victory';
-      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">${won ? 'MISSION ACCOMPLISHED' : 'MISSION ENDED'}</span><div class="sea-intro-emblem">${won ? '✦' : '⌖'}</div><h3>${won ? '海域已安全，任务完成！' : '防线失守，下次再战。'}</h3><p>击沉 ${s.kills} 艘敌舰 · ${s.score} 分<br>${won ? '成功抵御全部 8 波进攻' : `坚持至第 ${s.wave} 波`} · 最高分 ${best}</p><button class="sea-primary" data-sea-action="start">重新部署 →</button></div>`;
+      overlay.innerHTML = `<div class="sea-intro-panel"><span class="sea-kicker">${won ? 'MISSION ACCOMPLISHED' : 'MISSION ENDED'}</span><div class="sea-intro-emblem">${won ? '✦' : '⌖'}</div><h3>${won ? '海域已安全，任务完成！' : '防线失守，下次再战。'}</h3><p>击沉 ${s.kills} 艘敌舰 · ${s.score} 分<br>${won ? `成功抵御全部 ${WAVES} 波进攻` : `坚持至第 ${s.wave} 波`} · 最高分 ${best}</p><button class="sea-primary" data-sea-action="start">重新部署 →</button></div>`;
     }
   }
   function circle(x,y,r,fill,stroke,width=1) { ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();} }
@@ -318,7 +320,10 @@
     if(e.type==='boss'){circle(-r*.9,0,9,'#b3ada0');rect(-r*.9,-3,22,6,1,'#374f53');rect(-r*.1,-r*.63,14,5,1,'#be7158');}
     }
     ctx.restore();
-    if(e.hp<e.maxHp||e.type==='boss') {rect(e.x-22,e.y-e.radius-16,44,4,2,'#183b44');rect(e.x-22,e.y-e.radius-16,44*Math.max(0,e.hp/e.maxHp),4,2,e.type==='boss'?'#e4ac71':'#d5bb82');}
+    if(e.barrier>0){circle(e.x,e.y,e.radius+9,'#75cfff0c','#83dcff99',2);}
+    if(e.chill>0){circle(e.x,e.y,e.radius+5,null,'#b1efff99',2);}
+    if(e.hp<e.maxHp||e.type==='boss'||e.type==='dreadnought') {rect(e.x-22,e.y-e.radius-16,44,4,2,'#183b44');rect(e.x-22,e.y-e.radius-16,44*Math.max(0,e.hp/e.maxHp),4,2,e.type==='boss'?'#e4ac71':'#d5bb82');}
+    if(['raider','missile','guardian','tender','dreadnought'].includes(e.type)){ctx.fillStyle=e.type==='tender'?'#9aefb8':'#d6e8ed';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(TYPES[e.type].name,e.x,e.y+e.radius+22);}
     if(e.submerged){ctx.fillStyle='#bddbd9';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.fillText('潜航',e.x,e.y+e.radius+18);}
   }
   function draw() {
@@ -352,11 +357,11 @@
     ctx.translate(-s.recoil*20,0);rect(-19,-18,40,36,8,'#a7af98');rect(-13,-13,22,26,4,'#7b8d80');rect(7,-8,46,16,3,'#344f51');rect(17,-6,31,4,1,'#9ba995');rect(48,-10,10,20,2,'#4b6160');circle(-9,0,6,'#596f63');
     ctx.restore();
     }
-    if(s.recoil>.11){ctx.save();ctx.translate(CX,CY);ctx.rotate(s.angle);ctx.fillStyle='#ffdda4';ctx.beginPath();ctx.moveTo(57,-7);ctx.lineTo(84,0);ctx.lineTo(57,7);ctx.fill();ctx.restore();}
+    if(s.recoil>.11){ctx.save();ctx.translate(CX,CY);ctx.rotate(s.angle);ctx.fillStyle=game.weaponStats('primary').color;ctx.beginPath();ctx.moveTo(57,-7);ctx.lineTo(84,0);ctx.lineTo(57,7);ctx.fill();ctx.restore();}
     if(s.shield>0) {circle(CX,CY,66,'#a1e0cd18','#a0e6d7aa',3);circle(CX,CY,72,null,'#9edace36');}
     if(s.freeze>0){ctx.fillStyle='#98dce00b';ctx.fillRect(0,0,W,H);}
     for(const b of s.bullets){const color=(WEAPONS[b.type].find(w=>w.id===b.weapon)||WEAPONS[b.type][0]).color;ctx.strokeStyle=color+'88';ctx.lineWidth=b.weapon==='howitzer'?6:b.type==='primary'?4:2;ctx.beginPath();ctx.moveTo(b.x-b.vx*.022,b.y-b.vy*.022);ctx.lineTo(b.x,b.y);ctx.stroke();circle(b.x,b.y,b.weapon==='howitzer'?7:b.type==='primary'?5:2,color);}
-    for(const e of s.effects){const a=e.age/e.duration;if(e.kind==='explosion'&&art.explosion(ctx,e))continue;ctx.globalAlpha=1-a;if(e.kind==='airstrike'){circle(e.x,e.y,e.size*a,null,'#fff0b5',12*(1-a));}else if(e.kind==='shield'){circle(e.x,e.y,e.size+a*15,null,'#bdf2dc',4);}else{circle(e.x,e.y,e.size*(.2+a*.8),null,'#edba8666',3);circle(e.x,e.y,e.size*(1-a)*.65,'#efb47699');circle(e.x,e.y,e.size*(1-a)*.3,'#ffe6a9');for(let i=0;i<7;i++){const angle=e.seed+i*Math.PI*2/7;circle(e.x+Math.cos(angle)*e.size*a,e.y+Math.sin(angle)*e.size*a,2*(1-a),'#ffe1a8');}}ctx.globalAlpha=1;}
+    for(const e of s.effects){const a=e.age/e.duration;if(e.kind==='beam'){ctx.save();ctx.globalAlpha=1-a;ctx.strokeStyle=e.color;ctx.lineWidth=e.size*(1-a)+1;ctx.shadowColor=e.color;ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.ex,e.ey);ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.stroke();ctx.restore();continue;}if(e.kind==='plasma'){ctx.globalAlpha=1-a;circle(e.x,e.y,e.size*(.3+a),'#c17cff18','#eea5ff',4*(1-a));circle(e.x,e.y,e.size*(1-a)*.6,'#f4caff99');ctx.globalAlpha=1;continue;}if(e.kind==='repair'){ctx.globalAlpha=1-a;circle(e.x,e.y,e.size*a,null,'#83efb3',2);ctx.globalAlpha=1;continue;}if(e.kind==='explosion'&&art.explosion(ctx,e))continue;ctx.globalAlpha=1-a;if(e.kind==='airstrike'){circle(e.x,e.y,e.size*a,null,'#fff0b5',12*(1-a));}else if(e.kind==='shield'){circle(e.x,e.y,e.size+a*15,null,'#bdf2dc',4);}else{circle(e.x,e.y,e.size*(.2+a*.8),null,'#edba8666',3);circle(e.x,e.y,e.size*(1-a)*.65,'#efb47699');circle(e.x,e.y,e.size*(1-a)*.3,'#ffe6a9');for(let i=0;i<7;i++){const angle=e.seed+i*Math.PI*2/7;circle(e.x+Math.cos(angle)*e.size*a,e.y+Math.sin(angle)*e.size*a,2*(1-a),'#ffe1a8');}}ctx.globalAlpha=1;}
     if(s.phase==='playing'&&!s.paused){const a=s.aim;ctx.strokeStyle='#e5d29c';ctx.lineWidth=1.5;circle(a.x,a.y,14,null,'#e5d29c');ctx.beginPath();ctx.moveTo(a.x-21,a.y);ctx.lineTo(a.x-8,a.y);ctx.moveTo(a.x+8,a.y);ctx.lineTo(a.x+21,a.y);ctx.moveTo(a.x,a.y-21);ctx.lineTo(a.x,a.y-8);ctx.moveTo(a.x,a.y+8);ctx.lineTo(a.x,a.y+21);ctx.stroke();circle(a.x,a.y,2,'#f6ddb1');}
     if(s.damageFlash>0){ctx.strokeStyle=`rgba(219,116,84,${s.damageFlash*2})`;ctx.lineWidth=15;ctx.strokeRect(0,0,W,H);}
   }

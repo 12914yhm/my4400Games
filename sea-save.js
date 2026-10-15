@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const weapons=typeof module!=='undefined'&&module.exports?require('./sea-weapons'):root.SeaWeapons;
+  const campaign=typeof module!=='undefined'&&module.exports?require('./sea-campaign'):root.SeaCampaign;
   const n = (min, max, integer = false) => v => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v));
   const bool = v => typeof v === 'boolean';
   const one = values => v => values.includes(v);
@@ -20,15 +21,15 @@
     return value.map(item => object(item, schema));
   }
   function clean(save) {
-    if (save?.version !== 1) throw new Error('不支持此存档版本');
+    if (![1,2].includes(save?.version)) throw new Error('不支持此存档版本');
     const s = save.state;
     const state = object(s, {
       phase: one(['ready', 'playing', 'shop', 'over', 'victory']), paused: bool,
-      wave: n(1, 8, true), hp: n(0, 440), maxHp: n(200, 440, true), credits: n(0, 10000000, true),
+      wave: n(1, campaign.WAVES, true), hp: n(0, 440), maxHp: n(200, 440, true), credits: n(0, 10000000, true),
       score: n(0, 100000000, true), kills: n(0, 10000, true), angle: n(-100, 100),
       cannonCooldown: n(0, 4), gunCooldown: n(0, 1), recoil: n(0, 1), shield: n(0, 8), freeze: n(0, 7),
-      gunHeat: n(0, 100), overheated: bool, spawnLeft: n(0, 21, true), total: n(0, 21, true),
-      destroyed: n(0, 21, true), spawnTimer: n(-1000000, 10), elapsed: n(0, 10000000),
+      gunHeat: n(0, 100), overheated: bool, spawnLeft: n(0, campaign.MAX_ENEMIES, true), total: n(0, campaign.MAX_ENEMIES, true),
+      destroyed: n(0, campaign.MAX_ENEMIES, true), spawnTimer: n(-1000000, 10), elapsed: n(0, 10000000),
       lastReward: n(0, 10000, true), event: n(0, 10000000, true)
     });
     state.upgrades = object(s.upgrades, { power: n(0, 5, true), rate: n(0, 4, true), cannon: n(0, 4, true), armor: n(0, 4, true) });
@@ -41,9 +42,13 @@
     });
     for(const slot of ['primary','secondary'])if(weapons.find(slot,state.loadout[slot]).wave>weapons.unlockWave(state))throw new Error('武器尚未解锁');
     state.aim = object(s.aim, { x: n(0, 960), y: n(0, 600) });
-    state.enemies = list(s.enemies, { ...position, id: n(0, 100000, true), type: one(['patrol','fast','armored','submarine','boss']),
+    state.enemies = list(s.enemies, { ...position, id: n(0, 100000, true), type: one(Object.keys(campaign.TYPES)),
       hp: n(0, 10000), maxHp: n(1, 10000), speed: n(1, 100), radius: n(1, 50), reward: n(0, 1000), damage: n(0, 100),
-      interval: n(.1, 10), range: n(0, 500), angle: n(-100, 100), cooldown: n(-1, 10), turn: one([-1, 1]), age: n(0, 10000000), flash: n(0, 1), submerged: bool }, 21);
+      interval: n(.1, 10), range: n(0, 500), angle: n(-100, 100), cooldown: n(-1, 10), turn: one([-1, 1]), age: n(0, 10000000), flash: n(0, 1), submerged: bool }, campaign.MAX_ENEMIES);
+    state.enemies.forEach((enemy,i)=>{
+      enemy.chill=s.enemies[i].chill??0;enemy.barrier=s.enemies[i].barrier??(enemy.type==='guardian'?100:0);
+      if(!n(0,2)(enemy.chill)||!n(0,100)(enemy.barrier)||enemy.type!=='guardian'&&enemy.barrier!==0)throw new Error('敌舰状态无效');
+    });
     if (new Set(state.enemies.map(e => e.id)).size !== state.enemies.length) throw new Error('敌舰编号重复');
     state.bullets = list(s.bullets, { ...position, vx: n(-1000, 1000), vy: n(-1000, 1000), type: one(['primary', 'secondary']), damage: n(0, 1000), remaining: n(0, 2000), radius: n(0, 200) }, 128);
     state.bullets.forEach((bullet,i)=>{
@@ -55,7 +60,9 @@
     state.hostile = list(s.hostile, { ...position, vx: n(-1000, 1000), vy: n(-1000, 1000), damage: n(0, 100), torpedo: bool }, 256);
     // Never restore held controls, pending sounds, animations or fractional ticks.
     Object.assign(state, { primary: false, secondary: false, effects: [], accumulator: 0, damageFlash: 0, message: '' });
-    return { version: 1, state };
+    // An old eight-wave victory becomes the resupply stop before chapter three.
+    if(save.version===1&&state.phase==='victory'&&state.wave===8)state.phase='shop';
+    return { version: 2, state };
   }
   const api = { clean };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaSave = api;

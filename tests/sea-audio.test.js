@@ -27,6 +27,15 @@ test('unsupported browsers keep gameplay usable with no audio exceptions',()=>{
   const f=fixture(false);f.audio.unlock();f.audio.play('cannon');f.audio.stop();f.audio.setEnabled(false);assert.equal(f.audio.enabled,false);
 });
 
+test('energy weapons produce bounded voices and stop immediately when paused',()=>{
+  const f=fixture();
+  for(const kind of ['beam','pierce','chain','plasma','cryo']){
+    f.audio.unlock();const before=f.nodes.filter(n=>n.started).length;f.audio.play(kind);
+    assert.equal(f.nodes.filter(n=>n.started).length-before,2,kind);
+    f.audio.stop();assert.ok(f.nodes.filter(n=>n.started).every(n=>n.stopped));
+  }
+});
+
 test('cannon layers include a short report and delayed tail, all cancelled on pause',()=>{
   const f=fixture();f.audio.unlock();f.audio.play('cannon');
   const voices=f.nodes.filter(n=>n.started);

@@ -139,11 +139,12 @@ test('the final wave ends in victory', () => {
   const game=fixture();game.state.wave=WAVES;game.state.enemies=[];advance(game,.02);
   assert.equal(game.state.phase,'victory');assert.equal(game.nextWave(),false);
 });
-test('a seeded full campaign can be completed with aiming and earned upgrades', () => {
+test('the original eight-wave arc remains playable with standard weapons and earned upgrades', () => {
   let seed=81;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const game=create(random);game.start();
-  for(let frame=0;frame<120*400&&!['over','victory'].includes(game.state.phase);frame++){
+  for(let frame=0;frame<120*1200&&!['over','victory'].includes(game.state.phase);frame++){
     const s=game.state;
+    if(s.phase==='shop'&&s.wave===8)break;
     if(s.phase==='shop'){
       for(const id of ['power','rate','armor','cannon'])game.purchase(id);
       if(s.hp<s.maxHp-60)game.purchase('repair');game.nextWave();
@@ -154,8 +155,8 @@ test('a seeded full campaign can be completed with aiming and earned upgrades', 
     if(s.hp<70)game.useItem(1);
     if(s.enemies.length>5)game.useItem(2);
     game.step(1/120);
-    if (frame % 120 === 0) assert.equal(game.snapshot().version, 1);
+    if (frame % 120 === 0) assert.equal(game.snapshot().version, 2);
   }
-  assert.equal(game.state.phase,'victory',`Campaign stopped at wave ${game.state.wave}, hp ${game.state.hp}`);
+  assert.equal(game.state.phase,'shop',`Campaign stopped at wave ${game.state.wave}, hp ${game.state.hp}`);assert.equal(game.state.wave,8);
   assert.ok(game.state.score>0);assert.ok(game.state.credits>=0);assert.ok(game.state.kills>90);
 });

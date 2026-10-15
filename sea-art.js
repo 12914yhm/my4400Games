@@ -6,6 +6,8 @@
     submarine: 'submarine-v1', boss: 'enemy-flagship-v1', explosion: 'explosion-sheet-v2'
   };
   for (const id of ['cannon','spread','howitzer','machinegun','twin','rapid']) sources['weapon_' + id] = 'weapon-' + id + '-v1';
+  for(const id of ['laser','railgun','plasma','cryo','tesla'])sources['weapon_'+id]='weapon-'+id+'-v1.svg';
+  for(const id of ['raider','missile','guardian','tender','dreadnought'])sources[id]=id+'-v1.svg';
   const textures = {}, flashes = {}, frames = [];
   let pending, status = 'idle', loaded = 0;
   function surface(w, h) {
@@ -33,7 +35,7 @@
     const tile = surface(width, Math.round(width * image.height / image.width));
     const c = tile.getContext('2d'); c.imageSmoothingQuality = 'high';
     c.drawImage(image, 0, 0, tile.width, tile.height); textures[id] = tile;
-    if (['patrol', 'fast', 'armored', 'submarine', 'boss'].includes(id)) {
+    if (window.SeaEngine.TYPES[id]) {
       const flash = surface(tile.width, tile.height), f = flash.getContext('2d');
       f.drawImage(tile, 0, 0); f.globalCompositeOperation = 'source-in';
       f.fillStyle = '#fff0c7'; f.fillRect(0, 0, flash.width, flash.height); flashes[id] = flash;
@@ -52,7 +54,7 @@
       };
       const timeout = setTimeout(() => finish(false), 30000);
       image.onload = () => finish(true); image.onerror = () => finish(false);
-      image.src = './art/sea/' + filename + '.png';
+      image.src = './art/sea/' + filename + (filename.endsWith('.svg')?'':'.png');
     }))).then(() => { status = loaded === Object.keys(sources).length ? 'ready' : 'partial'; });
     return pending;
   }

@@ -55,7 +55,11 @@
       if (now - (last.get(kind) ?? -Infinity) < gap) return;
       last.set(kind, now);
       try {
-        if (kind === 'gun') {
+        if (['beam','pierce','chain','plasma','cryo'].includes(kind)) {
+          const low=kind==='pierce'||kind==='plasma';
+          voice({frequency:low?200:kind==='chain'?850:1400,end:low?38:180,duration:low?.5:.2,volume:.24,type:kind==='chain'?'sawtooth':'sine'});
+          voice({noiseVoice:true,duration:low?.4:.12,volume:low?.3:.1,cutoff:low?1900:4800});
+        } else if (kind === 'gun') {
           voice({ noiseVoice:true, duration:.075, volume:.27, cutoff:3800 });
           voice({ frequency:180, end:65, duration:.065, volume:.13, type:'square' });
         } else if (kind === 'cannon') {
