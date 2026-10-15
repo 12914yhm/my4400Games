@@ -54,11 +54,11 @@ test('sustained fire overheats, cannot be bypassed by tapping, and recovers only
   assert.equal(game.state.overheated,true); assert.equal(game.state.gunHeat,100);
   assert.equal(game.drainSounds().filter(s=>s==='overheat').length,1);
   for(let i=0;i<100;i++){game.trigger('secondary',false);game.trigger('secondary',true);}
-  assert.equal(game.drainSounds().includes('gun'),false);
+  assert.equal(game.drainSounds().includes('weapon:machinegun'),false);
   advance(game,2); assert.equal(game.state.overheated,true); assert.ok(game.state.gunHeat>30);
   game.trigger('secondary',false);advance(game,.9);
   assert.equal(game.state.overheated,false);assert.ok(game.state.gunHeat<=30);
-  game.drainSounds();game.trigger('secondary',true);assert.ok(game.drainSounds().includes('gun'));
+  game.drainSounds();game.trigger('secondary',true);assert.ok(game.drainSounds().includes('weapon:machinegun'));
 });
 test('burst fire cools while released and upgraded rate still respects heat lock', () => {
   const game=weaponFixture();game.trigger('secondary',true);advance(game,1);game.release();
@@ -70,10 +70,10 @@ test('cannon cooldown rejects spam and remains available during machine gun over
   const game=weaponFixture();game.state.overheated=true;game.state.gunHeat=100;
   game.trigger('primary',true);game.trigger('primary',false);
   for(let i=0;i<30;i++){game.trigger('primary',true);game.trigger('primary',false);}
-  assert.equal(game.drainSounds().filter(s=>s==='cannon').length,1);
+  assert.equal(game.drainSounds().filter(s=>s==='weapon:cannon').length,1);
   advance(game,2);game.trigger('primary',true);game.trigger('primary',false);
-  assert.equal(game.drainSounds().filter(s=>s==='cannon').length,0);
-  advance(game,.3);game.trigger('primary',true);assert.ok(game.drainSounds().includes('cannon'));
+  assert.equal(game.drainSounds().filter(s=>s==='weapon:cannon').length,0);
+  advance(game,.3);game.trigger('primary',true);assert.ok(game.drainSounds().includes('weapon:cannon'));
 });
 test('pause freezes weapon heat and cooldown; next wave resets both and upgrades shorten cooldown', () => {
   const game=weaponFixture();game.trigger('primary',true);game.trigger('secondary',true);advance(game,.4);game.pause(true);
@@ -83,7 +83,7 @@ test('pause freezes weapon heat and cooldown; next wave resets both and upgrades
   game.nextWave();assert.equal(game.state.gunHeat,0);assert.equal(game.state.cannonCooldown,0);assert.equal(game.state.overheated,false);
 });
 test('sound events drain once and do not grow without a rendering consumer', () => {
-  const game=weaponFixture();game.trigger('primary',true);assert.deepEqual(game.drainSounds(),['cannon']);assert.deepEqual(game.drainSounds(),[]);
+  const game=weaponFixture();game.trigger('primary',true);assert.deepEqual(game.drainSounds(),['weapon:cannon']);assert.deepEqual(game.drainSounds(),[]);
   advance(game,30);assert.ok(game.drainSounds().length<=32);
 });
 test('start is explicit and guarded; spawning does not exceed the wave budget', () => {

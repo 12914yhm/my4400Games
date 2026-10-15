@@ -136,11 +136,11 @@
           vx: Math.cos(direction) * speed, vy: Math.sin(direction) * speed, type, weapon:weapon.id,
           damage: weapon.damage, remaining: cannon ? Math.max(8, distance - muzzle) : 1100, radius:weapon.radius });
       }
-      if (cannon) { state.cannonCooldown = cannonDelay(); state.recoil = .18; state.event++; emit(weapon.mode || (weapon.id==='plasma'?'plasma':'cannon')); }
+      if (cannon) { state.cannonCooldown = cannonDelay(); state.recoil = .18; state.event++; emit('weapon:'+weapon.id); }
       else {
         secondarySide *= -1;
         state.gunCooldown = weapon.interval;
-        state.gunHeat = Math.min(100, state.gunHeat + weapon.heat); emit(weapon.mode || (weapon.id==='cryo'?'cryo':'gun'));
+        state.gunHeat = Math.min(100, state.gunHeat + weapon.heat); emit('weapon:'+weapon.id);
         if (state.gunHeat >= 100) { state.overheated = true; emit('overheat'); }
       }
     }

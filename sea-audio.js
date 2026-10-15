@@ -1,9 +1,84 @@
 (function () {
   'use strict';
+  const durations = {machinegun:.28,twin:.36,rapid:.24,cannon:1.35,spread:1.1,howitzer:1.85,laser:.55,railgun:1.1,plasma:1.45,cryo:.32,tesla:.48};
+  // Original synthesized samples: pressure bursts, damped metal and outdoor reflections.
+  // Energy weapons are fictional; avoid musical pitch sweeps and use physical transients.
+  function weaponBuffer(context, id, variation) {
+    const rate=context.sampleRate, length=Math.ceil(durations[id]*rate);
+    const dry=new Float32Array(length), buffer=context.createBuffer(2,length,rate);
+    let seed=12345+variation*7919;
+    for(const c of id)seed=(Math.imul(seed,31)+c.charCodeAt(0))>>>0;
+    const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    const pitch=.97+random()*.06;
+    function burst(at,duration,volume,low=6000,high=120,decay=.2) {
+      let lp=0,hp=0;
+      const a=1-Math.exp(-2*Math.PI*Math.min(low,rate*.42)/rate),b=1-Math.exp(-2*Math.PI*high/rate);
+      const start=Math.round(at*rate),count=Math.min(Math.ceil(duration*rate),length-start);
+      for(let i=0;i<count;i++){
+        const t=i/rate;lp+=a*(random()*2-1-lp);hp+=b*(lp-hp);
+        dry[start+i]+=(lp-hp)*volume*(1-Math.exp(-t/.00035))*Math.exp(-t/(duration*decay))*Math.min(1,(duration-t)/.008);
+      }
+    }
+    function body(at,duration,hz,volume) {
+      const start=Math.round(at*rate),count=Math.min(Math.ceil(duration*rate),length-start),f=2*Math.PI*hz*pitch;
+      for(let i=0;i<count;i++){
+        const t=i/rate,ring=.68*Math.sin(f*t)+.22*Math.sin(f*1.63*t)+.1*Math.sin(f*2.71*t);
+        dry[start+i]+=ring*volume*(1-Math.exp(-t/.0015))*Math.exp(-t/(duration*.16))*Math.min(1,(duration-t)/.01);
+      }
+    }
+    function bolt(at,volume=.12,hz=1300){burst(at,.025,volume,7000,900);body(at,.055,hz,volume*.3);}
+    function report(at,weight=1,deep=100,tail=.5){
+      burst(at,.035,.95*weight,9500,650); // supersonic crack
+      burst(at+.002,.19,.7*weight,2400,90,.24);
+      body(at+.001,.27,deep,.6*weight);
+      burst(at+.025,tail,.42*weight,850,40,.24);
+    }
+    switch(id){
+      case 'machinegun':report(0,.55,175,.16);bolt(.045,.2);break;
+      case 'twin':report(0,.48,145,.22);report(.014,.43,155,.2);bolt(.058,.24,1050);break;
+      case 'rapid':report(0,.65,125,.13);bolt(.03,.25,850);break;
+      case 'cannon':report(0,1.05,78,.85);body(.008,.62,49,.35);bolt(.16,.18,420);break;
+      case 'spread':
+        [0,.018,.036].forEach(t=>report(t,.55,110,.45));bolt(.14,.22,650);break;
+      case 'howitzer':report(0,1.2,58,1.3);body(.012,.9,34,.42);burst(.055,1.2,.5,420,28,.3);bolt(.24,.23,290);break;
+      case 'laser':
+        burst(0,.018,.9,10000,1800);burst(.007,.23,.55,4400,900,.3);
+        body(.002,.14,210,.32);burst(.12,.28,.16,2100,400,.35);bolt(.035,.13,1600);break;
+      case 'railgun':
+        burst(0,.012,1.35,12000,1900);report(.003,.85,95,.55);
+        body(.005,.28,340,.22);burst(.025,.36,.35,5000,1400,.24);bolt(.14,.25,700);break;
+      case 'plasma':
+        burst(0,.06,.7,3200,120);body(.002,.75,62,.65);body(.004,.4,142,.25);
+        burst(.015,.95,.85,1100,55,.35);burst(.08,.55,.22,4700,1800,.4);bolt(.12,.15,480);break;
+      case 'cryo':
+        burst(0,.025,.6,6500,800);body(.001,.11,240,.26);bolt(.028,.2,1750);
+        burst(.018,.22,.38,9500,3300,.38);break;
+      case 'tesla':
+        [0,.021,.055,.093].forEach((t,i)=>{burst(t,.018,.8-i*.12,11000,1200);body(t,.065,120+i*75,.18);});
+        burst(.01,.32,.32,3200,500,.42);bolt(.02,.15,1900);break;
+    }
+    // Subtle, filtered reflections preserve the dry attack and avoid an indoor echo.
+    let peak=0;
+    for(let channel=0;channel<2;channel++){
+      const output=buffer.getChannelData(channel);let reflection=0;
+      const offset=Math.round((channel?.073:.061)*rate),far=Math.round((channel?.139:.153)*rate);
+      for(let i=0;i<length;i++){
+        reflection+=.09*((i>=offset?dry[i-offset]:0)-reflection);
+        output[i]=dry[i]+reflection*.15+(i>=far?dry[i-far]*.035:0);
+        output[i]*=Math.min(1,(length-1-i)/(rate*.02));
+        peak=Math.max(peak,Math.abs(output[i]));
+      }
+    }
+    const scale=.86/Math.max(.86,peak);
+    for(let channel=0;channel<2;channel++){
+      const output=buffer.getChannelData(channel);for(let i=0;i<length;i++)output[i]*=scale;
+    }
+    return buffer;
+  }
   // Procedural effects need no downloads; audio is unlocked only by a user gesture.
   function create() {
     let context, master, noise, enabled = true, active = false;
-    const voices = new Set(), last = new Map();
+    const voices = new Set(), last = new Map(), samples = new Map(), variations = new Map();
     try { enabled = localStorage.getItem('play-island-sea-sound') !== 'off'; } catch {}
     function unlock() {
       if (!enabled) return;
@@ -29,6 +104,18 @@
       voices.clear();
       if (context && context.state === 'running') context.suspend().catch(() => {});
     }
+    function shot(id) {
+      // Reserve audibility for the latest shot even during a large explosion barrage.
+      if(voices.size>=32){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}
+      const variation=(variations.get(id)||0)%3;variations.set(id,variation+1);
+      const key=id+':'+variation;
+      if(!samples.has(key))samples.set(key,weaponBuffer(context,id,variation));
+      const source=context.createBufferSource(),gain=context.createGain();
+      source.buffer=samples.get(key);gain.gain.value=id==='rapid'?.72:id==='twin'?.8:.9;
+      source.connect(gain);gain.connect(master);voices.add(source);
+      source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};
+      source.start(context.currentTime);source.stop(context.currentTime+source.buffer.duration+.01);
+    }
     function voice({ frequency = 100, end = 40, duration = .15, volume = .2, delay = 0, type = 'triangle', noiseVoice = false, cutoff = 1200 }) {
       if (voices.size >= 32) return;
       const now = context.currentTime + delay, gain = context.createGain();
@@ -51,25 +138,15 @@
     }
     function play(kind) {
       if (!enabled || !active || context?.state !== 'running') return;
-      const now = context.currentTime, gap = kind === 'gun' ? .045 : kind === 'explosion' ? .07 : .15;
+      const aliases={gun:'machinegun',cannon:'cannon',beam:'laser',pierce:'railgun',chain:'tesla',plasma:'plasma',cryo:'cryo'};
+      const weapon=kind.startsWith('weapon:')?kind.slice(7):aliases[kind];
+      if(weapon&&!durations[weapon])return;
+      const now = context.currentTime, gap = weapon ? .025 : kind === 'explosion' ? .07 : .15;
       if (now - (last.get(kind) ?? -Infinity) < gap) return;
       last.set(kind, now);
       try {
-        if (['beam','pierce','chain','plasma','cryo'].includes(kind)) {
-          const low=kind==='pierce'||kind==='plasma';
-          voice({frequency:low?200:kind==='chain'?850:1400,end:low?38:180,duration:low?.5:.2,volume:.24,type:kind==='chain'?'sawtooth':'sine'});
-          voice({noiseVoice:true,duration:low?.4:.12,volume:low?.3:.1,cutoff:low?1900:4800});
-        } else if (kind === 'gun') {
-          voice({ noiseVoice:true, duration:.075, volume:.27, cutoff:3800 });
-          voice({ frequency:180, end:65, duration:.065, volume:.13, type:'square' });
-        } else if (kind === 'cannon') {
-          // Sharp report, barrel body, bass punch, then a softer distant rumble.
-          // Midrange body keeps the shot audible on small phone speakers.
-          voice({ noiseVoice:true, duration:.075, volume:.38, cutoff:5200 });
-          voice({ noiseVoice:true, duration:.36, volume:.36, cutoff:1800 });
-          voice({ frequency:155, end:42, duration:.42, volume:.48, type:'sine' });
-          voice({ frequency:230, end:75, duration:.18, volume:.12, type:'triangle' });
-          voice({ noiseVoice:true, duration:.85, delay:.09, volume:.2, cutoff:650 });
+        if (weapon) {
+          shot(weapon);
         } else if (kind === 'explosion' || kind === 'hit') {
           voice({ noiseVoice:true, duration:.65, volume:.42, cutoff:1200 });
           voice({ frequency:75, end:25, duration:.45, volume:.5, type:'sine' });
