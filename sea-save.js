@@ -55,7 +55,9 @@
       interval: n(.1, 10), range: n(0, 500), angle: n(-100, 100), cooldown: n(-1, 10), turn: one([-1, 1]), age: n(0, 10000000), flash: n(0, 1), submerged: bool }, campaign.MAX_ENEMIES);
     state.enemies.forEach((enemy,i)=>{
       enemy.chill=s.enemies[i].chill??0;enemy.barrier=s.enemies[i].barrier??(enemy.type==='guardian'?100:0);
+      enemy.launched=s.enemies[i].launched??false;
       if(!n(0,2)(enemy.chill)||!n(0,100)(enemy.barrier)||enemy.type!=='guardian'&&enemy.barrier!==0)throw new Error('敌舰状态无效');
+      if(!bool(enemy.launched)||enemy.launched&&enemy.type!=='fighter')throw new Error('舰载机状态无效');
     });
     if (new Set(state.enemies.map(e => e.id)).size !== state.enemies.length) throw new Error('敌舰编号重复');
     state.bullets = list(s.bullets, { ...position, vx: n(-1000, 1000), vy: n(-1000, 1000), type: one(['primary', 'secondary']), damage: n(0, 1000), remaining: n(0, 2000), radius: n(0, 200) }, 128);

@@ -160,7 +160,7 @@ test('cannon splash damages nearby ships', () => {
 });
 
 test('each hull class produces a matching sinking sequence and sound without changing rewards',()=>{
-  const classes={patrol:'small',fast:'small',raider:'small',armored:'medium',missile:'medium',tender:'medium',guardian:'shield',submarine:'sub',boss:'large',dreadnought:'large'};
+  const classes={patrol:'small',fast:'small',raider:'small',fighter:'air',armored:'medium',destroyer:'medium',missile:'medium',tender:'medium',guardian:'shield',submarine:'sub',battleship:'large',carrier:'large',boss:'large',dreadnought:'large'};
   for(const [type,hull] of Object.entries(classes)){
     const game=fixture(),target=enemy(type,CX+160,CY);target.hp=25;target.maxHp=TYPES[type].hp;
     game.state.enemies=[target];game.setAim(CX+160,CY);game.drainSounds();game.trigger('primary',true);game.release();advance(game,.6);

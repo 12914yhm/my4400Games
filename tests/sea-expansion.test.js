@@ -44,6 +44,28 @@ test('ramming ships damage the base once and finish the wave without kill reward
  // End-of-wave repair is capped at max health.
  assert.equal(g.state.phase,'victory');assert.equal(g.state.hp,101);
 });
+test('carriers launch bounded fighters that survive saves without inflating wave progress',()=>{
+ const g=game(),carrier=ship('carrier',1,700);carrier.cooldown=0;g.state.enemies=[carrier];
+ advance(g,.01);
+ const plane=g.state.enemies.find(e=>e.type==='fighter');
+ assert.ok(plane);assert.equal(plane.launched,true);assert.ok(plane.x<carrier.x);
+ assert.equal(g.state.destroyed,0);
+ const saved=g.snapshot(),restored=E.create();restored.restore(saved);
+ assert.equal(restored.state.enemies.find(e=>e.type==='fighter').launched,true);
+ const old=structuredClone(saved);delete old.state.enemies[0].launched;
+ assert.equal(Save.clean(old).state.enemies[0].launched,false);
+ const forged=structuredClone(saved);forged.state.enemies.find(e=>e.type==='fighter').launched='yes';
+ assert.throws(()=>Save.clean(forged),/舰载机/);
+ g.state.enemies=[plane,carrier];g.setAim(plane.x,plane.y);g.trigger('primary',true);
+ assert.equal(g.state.kills,1);assert.equal(g.state.destroyed,0);
+});
+test('launched aircraft dive into the base while the gasoline boat has a larger blast',()=>{
+ const g=game(),plane=ship('fighter',1,530);plane.launched=true;g.state.enemies=[plane];g.state.spawnLeft=1;
+ advance(g,.01);assert.equal(g.state.hp,200-plane.damage);assert.equal(g.state.destroyed,0);
+ const h=game(),boat=ship('raider',1,530);h.state.enemies=[boat];h.state.spawnLeft=1;
+ advance(h,.01);assert.equal(h.state.hp,200-boat.damage);
+ assert.ok(h.state.effects.some(e=>e.kind==='explosion'&&e.size>plane.radius*E.SHIP_SCALE));
+});
 test('plasma detonates across a wider area with its own effect',()=>{
  const g=game('plasma'),a=ship('armored',1,700),b=ship('armored',2,700,400);g.state.enemies=[a,b];g.setAim(700,300);g.trigger('primary',true);g.release();advance(g,.5);
  assert.ok(a.hp<1000&&b.hp<1000);assert.ok(g.state.effects.some(e=>e.kind==='plasma'));

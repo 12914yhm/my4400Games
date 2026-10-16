@@ -27,9 +27,9 @@ function fixture({failFlash = false} = {}) {
 test('art is lazy, shares one load and renders every enemy and explosion endpoint', async () => {
   const f = fixture(); assert.equal(f.requests.length, 0);
   const pending = f.art.load(); assert.equal(f.art.load(), pending);
-  assert.equal(f.requests.length, 25);
+  assert.equal(f.requests.length, 29);
   f.requests.forEach(image => image.onload()); await pending;
-  assert.equal(f.art.status, 'ready'); assert.equal(f.art.loaded, 25); assert.equal(f.timers.size, 0);
+  assert.equal(f.art.status, 'ready'); assert.equal(f.art.loaded, 29); assert.equal(f.timers.size, 0);
   const ctx = f.context();
   assert.equal(f.art.ocean(ctx, 960, 600), true);
   assert.equal(f.art.battery(ctx, 480, 300, Math.PI, .18), true);
@@ -45,7 +45,7 @@ test('a failed sprite permits play and requests fallback only for missing art', 
   const f = fixture(), pending = f.art.load();
   f.requests.forEach(image => image.url.includes('patrol-boat') ? image.onerror() : image.onload());
   await pending;
-  assert.equal(f.art.status, 'partial'); assert.equal(f.art.loaded, 24);
+  assert.equal(f.art.status, 'partial'); assert.equal(f.art.loaded, 28);
   assert.equal(f.art.ship(f.context(), { type: 'patrol', radius: 17 }), false);
   assert.equal(f.art.ship(f.context(), { type: 'boss', radius: 37 }), true);
   assert.equal(f.timers.size, 0);
@@ -62,9 +62,9 @@ test('a missing optional hit-flash surface does not stop rendering damaged ships
 test('reloading art after a canvas reset rebuilds hull and turret textures',async()=>{
   const f=fixture(),first=f.art.load();f.requests.forEach(image=>image.onload());await first;
   const second=f.art.reload();
-  assert.equal(f.art.status,'loading');assert.equal(f.requests.length,50);
-  f.requests.slice(25).forEach(image=>image.onload());await second;
-  assert.equal(f.art.status,'ready');assert.equal(f.art.loaded,25);
+  assert.equal(f.art.status,'loading');assert.equal(f.requests.length,58);
+  f.requests.slice(29).forEach(image=>image.onload());await second;
+  assert.equal(f.art.status,'ready');assert.equal(f.art.loaded,29);
   assert.equal(f.art.ship(f.context(),{type:'patrol',radius:25,flash:.09}),true);
   assert.equal(f.art.battery(f.context(),480,300,0,0),true);
 });

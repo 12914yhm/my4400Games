@@ -44,3 +44,8 @@ for kind,c in ships.items():
   for x in [95,310,390]:body+=f'<circle cx="{x}" cy="128" r="29" fill="url(#metal)"/><path d="M{x} 118H{x+58}M{x} 138H{x+58}" stroke="{c}" stroke-width="9"/>'
   body+='<path d="M160 60H270M160 196H270" stroke="#b5a0f4" stroke-width="9"/>'
  body+='</g>';(folder/f'{kind}-v1.svg').write_text(svg(body,512,256,c),encoding='utf-8')
+
+# Active special ships get distinct hull outlines after the original batch.
+# The raider SVG remains historical source; the game uses fuel-boat-v2.png.
+from generate_distinct import generate as generate_distinct
+generate_distinct(folder, svg)

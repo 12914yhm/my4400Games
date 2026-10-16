@@ -16,8 +16,9 @@
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
   const SIDE_GUN = Object.freeze({ forward: 37 * TURRET_SCALE, lateral: 29 * TURRET_SCALE, size: 44 * TURRET_SCALE });
   const shipRadius = enemy => enemy.radius * SHIP_SCALE;
-  const HULL_CLASS = Object.freeze({patrol:'small',fast:'small',raider:'small',submarine:'sub',
-    armored:'medium',missile:'medium',guardian:'shield',tender:'medium',boss:'large',dreadnought:'large'});
+  const HULL_CLASS = Object.freeze({patrol:'small',fast:'small',raider:'small',fighter:'air',submarine:'sub',
+    armored:'medium',destroyer:'medium',missile:'medium',guardian:'shield',tender:'medium',
+    battleship:'large',carrier:'large',boss:'large',dreadnought:'large'});
   // Pixels / seconds: a quick kick followed by a slower spring return.
   const RECOIL = Object.freeze(Object.fromEntries(Object.entries({
     cannon: [12,.32,.028], spread: [14,.30,.025], howitzer: [20,.44,.04],
@@ -129,7 +130,7 @@
     }
     function effect(x, y, kind, size = 25, detail = {}) {
       const duration = kind === 'airstrike' ? 1 : kind === 'ship-sink' ?
-        ({small:1.25,medium:1.8,large:2.8,sub:1.7,shield:1.9})[detail.hull] :
+        ({small:1.25,medium:1.8,large:2.8,sub:1.7,shield:1.9,air:1.1})[detail.hull] :
         kind === 'hull-hit' ? .38 : .6;
       if (state.effects.length >= 180) state.effects.shift();
       const visualOnly=kind==='hull-hit'||kind==='ship-sink'&&detail.hull!=='sub';
@@ -154,7 +155,8 @@
         enemy.lastFeedback=state.elapsed;
       }
       if (enemy.hp <= 0) {
-        state.credits += enemy.reward; state.score += enemy.reward * 10; state.kills++; state.destroyed++;
+        state.credits += enemy.reward; state.score += enemy.reward * 10; state.kills++;
+        if (!enemy.launched) state.destroyed++;
         effect(enemy.x,enemy.y,'ship-sink',shipRadius(enemy),{hull,type:enemy.type,angle:enemy.angle});
         if (hull !== 'sub') effect(enemy.x,enemy.y,'explosion',shipRadius(enemy)*(hull==='large'?2.8:hull==='small'?.95:1.5));
         emit('ship-sink:'+hull);
@@ -182,6 +184,16 @@
         angle: Math.atan2(CY - y, CX - x), cooldown: 1.8 + random() * 1.2,
         turn: random() > .5 ? 1 : -1, age: 0, flash: 0, submerged: false, chill:0, barrier:type==='guardian'?100:0 });
       state.spawnLeft--;
+    }
+    function launchFighter(carrier) {
+      if (state.enemies.filter(e=>e.hp>0&&e.type==='fighter'&&e.launched).length>=4) return null;
+      const config=TYPES.fighter,difficulty=DIFFICULTIES[state.difficulty];
+      const hp=Math.round(config.hp*difficulty.hp),angle=Math.atan2(CY-carrier.y,CX-carrier.x);
+      return {...config,radius:config.radius*1.2,damage:Math.round(config.damage*difficulty.damage),
+        reward:Math.round(config.reward*difficulty.reward),id:serial++,type:'fighter',
+        x:carrier.x+Math.cos(angle)*shipRadius(carrier)*.55,
+        y:carrier.y+Math.sin(angle)*shipRadius(carrier)*.55,hp,maxHp:hp,angle,
+        cooldown:config.interval,turn:1,age:0,flash:0,submerged:false,chill:0,barrier:0,launched:true};
     }
     function fire(type) {
       const cannon = type === 'primary', angle = state.angle;
@@ -303,6 +315,7 @@
         } else state.spawnTimer = .25;
       }
       const slow = state.freeze > 0 ? .25 : 1;
+      const launched=[];
       for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         enemy.chill=Math.max(0,(enemy.chill||0)-dt);
@@ -310,7 +323,11 @@
         enemy.age += dt * movement; enemy.flash = Math.max(0, enemy.flash - dt);
         enemy.submerged = enemy.type === 'submarine' && enemy.age % 9 < 4;
         const dx = CX - enemy.x, dy = CY - enemy.y, distance = Math.hypot(dx, dy), angle = Math.atan2(dy, dx);
-        if(enemy.type==='raider' && distance<58){hitBase(enemy.damage);enemy.hp=0;state.destroyed++;effect(enemy.x,enemy.y,'explosion',30);continue;}
+        if(['raider','fighter'].includes(enemy.type) && distance<58){
+          hitBase(enemy.damage);enemy.hp=0;if(!enemy.launched)state.destroyed++;
+          effect(enemy.x,enemy.y,'explosion',enemy.type==='raider'?shipRadius(enemy)*2.2:shipRadius(enemy)*1.2);
+          emit('explosion');continue;
+        }
         if (distance > enemy.range) {
           enemy.angle = angle; enemy.x += Math.cos(angle) * enemy.speed * dt * movement; enemy.y += Math.sin(angle) * enemy.speed * dt * movement;
         } else {
@@ -319,6 +336,11 @@
           enemy.y += Math.sin(angle + enemy.turn * Math.PI / 2) * enemy.speed * .32 * dt * movement;
           enemy.cooldown -= dt * movement;
           if (enemy.cooldown <= 0) {
+            if(enemy.type==='carrier'){
+              const plane=launchFighter(enemy);if(plane)launched.push(plane);
+              enemy.cooldown=enemy.interval/(1+(state.wave-1)*.025);
+              continue;
+            }
             if(enemy.type==='tender'){
               for(const ally of state.enemies)if(ally!==enemy&&ally.hp>0&&Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<130)ally.hp=Math.min(ally.maxHp,ally.hp+28);
               effect(enemy.x,enemy.y,'repair',130);
@@ -333,6 +355,7 @@
           }
         }
       }
+      state.enemies.push(...launched);
       for (const bullet of state.bullets) {
         const ox = bullet.x, oy = bullet.y;
         bullet.x += bullet.vx * dt; bullet.y += bullet.vy * dt; bullet.remaining -= Math.hypot(bullet.vx, bullet.vy) * dt;
