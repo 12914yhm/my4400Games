@@ -80,16 +80,19 @@
     const secondary = textures['weapon_' + (loadout.secondary || 'machinegun')];
     if (!textures.base || !primary) return false;
     ctx.save(); ctx.translate(x, y);
+    const { TURRET_SCALE, SIDE_GUN, recoilOffset } = window.SeaEngine;
+    ctx.scale(TURRET_SCALE, TURRET_SCALE);
     ctx.drawImage(textures.base, -59.5, -59.5, 119, 119);
     ctx.rotate(angle);
-    const { SIDE_GUN: { forward, lateral, size }, recoilOffset } = window.SeaEngine;
+    const { forward, lateral, size } = SIDE_GUN;
+    const gunForward = forward / TURRET_SCALE, gunLateral = lateral / TURRET_SCALE, gunSize = size / TURRET_SCALE;
     for (const side of [-1, 1]) {
       const back = recoilOffset(loadout.secondary || 'machinegun', gunRecoil[side === -1 ? 0 : 1]);
       // Twin art contains two barrels; use one half per mount, not two double guns.
       const twin = loadout.secondary === 'twin', muzzleY = twin ? .38 : .505;
       if (secondary) ctx.drawImage(secondary, 0, 0, secondary.width, secondary.height * (twin ? .5 : 1),
-        forward - size * .98 - back, side * lateral - size * muzzleY, size, size * (twin ? .5 : 1));
-      else { ctx.fillStyle = '#415d60'; ctx.fillRect(forward - 40 - back, side * lateral - 4, 40, 8); }
+        gunForward - gunSize * .98 - back, side * gunLateral - gunSize * muzzleY, gunSize, gunSize * (twin ? .5 : 1));
+      else { ctx.fillStyle = '#415d60'; ctx.fillRect(gunForward - 40 - back, side * gunLateral - 4, 40, 8); }
     }
     ctx.translate(-recoilOffset(loadout.primary || 'cannon', recoil), 0);
     // Bearing and gun muzzles share the simulation's reduced turret geometry.

@@ -11,9 +11,11 @@
   });
   const campaign = typeof module !== 'undefined' && module.exports ? require('./sea-campaign') : root.SeaCampaign;
   const {WAVES,LEVELS,TYPES} = campaign;
-  const MAIN_MUZZLE = 49;
+  const TURRET_SCALE = .75, SHIP_SCALE = 2;
+  const MAIN_MUZZLE = 49 * TURRET_SCALE;
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
-  const SIDE_GUN = Object.freeze({ forward: 37, lateral: 29, size: 44 });
+  const SIDE_GUN = Object.freeze({ forward: 37 * TURRET_SCALE, lateral: 29 * TURRET_SCALE, size: 44 * TURRET_SCALE });
+  const shipRadius = enemy => enemy.radius * SHIP_SCALE;
   const HULL_CLASS = Object.freeze({patrol:'small',fast:'small',raider:'small',submarine:'sub',
     armored:'medium',missile:'medium',guardian:'shield',tender:'medium',boss:'large',dreadnought:'large'});
   // Pixels / seconds: a quick kick followed by a slower spring return.
@@ -139,7 +141,7 @@
       if(!bypassShield && enemy.barrier>0){const absorbed=Math.min(enemy.barrier,damage);enemy.barrier-=absorbed;damage-=absorbed;}
       if (damage <= 0) {
         if (state.elapsed - (enemy.lastFeedback ?? -Infinity) >= .12) {
-          effect(enemy.x,enemy.y,'hull-hit',enemy.radius,{hull:'shield',type:enemy.type,angle:enemy.angle});
+          effect(enemy.x,enemy.y,'hull-hit',shipRadius(enemy),{hull:'shield',type:enemy.type,angle:enemy.angle});
           emit('ship-hit:shield');enemy.lastFeedback=state.elapsed;
         }
         return;
@@ -147,14 +149,14 @@
       enemy.hp -= damage; enemy.flash = .09;
       const hull=HULL_CLASS[enemy.type], sinking=enemy.hp<=0;
       if (sinking || state.elapsed - (enemy.lastFeedback ?? -Infinity) >= .12) {
-        effect(enemy.x,enemy.y,'hull-hit',enemy.radius,{hull,type:enemy.type,angle:enemy.angle});
+        effect(enemy.x,enemy.y,'hull-hit',shipRadius(enemy),{hull,type:enemy.type,angle:enemy.angle});
         if (!sinking) emit('ship-hit:'+hull);
         enemy.lastFeedback=state.elapsed;
       }
       if (enemy.hp <= 0) {
         state.credits += enemy.reward; state.score += enemy.reward * 10; state.kills++; state.destroyed++;
-        effect(enemy.x,enemy.y,'ship-sink',enemy.radius,{hull,type:enemy.type,angle:enemy.angle});
-        if (hull !== 'sub') effect(enemy.x,enemy.y,'explosion',enemy.radius*(hull==='large'?2.8:hull==='small'?.95:1.5));
+        effect(enemy.x,enemy.y,'ship-sink',shipRadius(enemy),{hull,type:enemy.type,angle:enemy.angle});
+        if (hull !== 'sub') effect(enemy.x,enemy.y,'explosion',shipRadius(enemy)*(hull==='large'?2.8:hull==='small'?.95:1.5));
         emit('ship-sink:'+hull);
       }
     }
@@ -212,7 +214,7 @@
       const dx=Math.cos(angle),dy=Math.sin(angle),range=1100;
       const along=p=>(p.x-origin.x)*dx+(p.y-origin.y)*dy;
       const candidates=state.enemies.filter(e=>e.hp>0 && !(weapon.mode==='chain'&&e.submerged)
-        && along(e)>0 && along(e)<=range && Math.abs((e.x-origin.x)*dy-(e.y-origin.y)*dx)<e.radius+3)
+        && along(e)>0 && along(e)<=range && Math.abs((e.x-origin.x)*dy-(e.y-origin.y)*dx)<shipRadius(e)+3)
         .sort((a,b)=>along(a)-along(b));
       const targets=candidates.slice(0,weapon.mode==='pierce'?3:1);
       const beam=(from,to,width=4)=>state.effects.push({x:from.x,y:from.y,ex:to.x,ey:to.y,kind:'beam',color:weapon.color,size:width,age:0,duration:.22,seed:0});
@@ -240,7 +242,7 @@
       effect(bullet.x, bullet.y, bullet.weapon==='plasma'?'plasma':'explosion', bullet.radius);
       emit('explosion');
       state.enemies.forEach(e => {
-        if (Math.hypot(e.x - bullet.x, e.y - bullet.y) < bullet.radius + e.radius) hitEnemy(e, bullet.damage);
+        if (Math.hypot(e.x - bullet.x, e.y - bullet.y) < bullet.radius + shipRadius(e)) hitEnemy(e, bullet.damage);
       });
       state.hostile.forEach(p => { if (Math.hypot(p.x - bullet.x, p.y - bullet.y) < bullet.radius) p.dead = true; });
     }
@@ -342,7 +344,7 @@
         }
         if (!hit) for (const enemy of state.enemies) {
           if (enemy.hp <= 0 || (enemy.submerged && bullet.type === 'secondary')) continue;
-          if (distanceToSegment(enemy.x, enemy.y, ox, oy, bullet.x, bullet.y) < enemy.radius + 3) {
+          if (distanceToSegment(enemy.x, enemy.y, ox, oy, bullet.x, bullet.y) < shipRadius(enemy) + 3) {
             if (bullet.type === 'primary') detonate(bullet); else { hitEnemy(enemy, bullet.damage);if(bullet.weapon==='cryo')enemy.chill=2; effect(bullet.x, bullet.y, 'spark', 8); }
             hit = true; break;
           }
@@ -384,6 +386,6 @@
     }
     return { state, setAim, setDifficulty, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
   }
-  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, MAIN_MUZZLE, SIDE_GUN, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
+  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

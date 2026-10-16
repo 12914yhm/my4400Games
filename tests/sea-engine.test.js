@@ -166,9 +166,21 @@ test('each hull class produces a matching sinking sequence and sound without cha
     game.state.enemies=[target];game.setAim(CX+160,CY);game.drainSounds();game.trigger('primary',true);game.release();advance(game,.6);
     assert.equal(game.state.kills,1,type);assert.equal(game.state.credits,100+target.reward+130,type);
     const sink=game.state.effects.find(e=>e.kind==='ship-sink');
-    assert.equal(sink?.type,type);assert.equal(sink.hull,hull);assert.equal(sink.size,target.radius);
+    assert.equal(sink?.type,type);assert.equal(sink.hull,hull);assert.equal(sink.size,target.radius*require('../sea-engine').SHIP_SCALE);
     assert.ok(game.drainSounds().includes('ship-sink:'+hull),type);
   }
+});
+
+test('a shot crossing the newly visible edge of a doubled ship registers a hit',()=>{
+  const {SHIP_SCALE,TURRET_SCALE,MAIN_MUZZLE,SIDE_GUN}=require('../sea-engine');
+  assert.equal(SHIP_SCALE,2);assert.equal(TURRET_SCALE,.75);
+  assert.equal(MAIN_MUZZLE,49*TURRET_SCALE);
+  assert.equal(SIDE_GUN.forward,37*TURRET_SCALE);
+  const game=fixture(),target=enemy('patrol',CX+160,CY+TYPES.patrol.radius*1.5);
+  game.state.enemies=[target];game.state.loadout.primary='railgun';game.setAim(CX+160,CY);
+  game.trigger('primary',true);
+  assert.equal(game.state.kills,1);
+  assert.equal(game.state.effects.find(e=>e.kind==='ship-sink')?.size,target.radius*SHIP_SCALE);
 });
 
 test('surviving hulls spark while shields absorb damage with a distinct effect',()=>{

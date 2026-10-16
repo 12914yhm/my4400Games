@@ -9,7 +9,7 @@ function fixture() {
   const requests = [], timers = new Map(), draws = [];
   let serial = 0;
   const context = () => ({
-    globalAlpha: 1, save() {}, restore() {}, translate() {}, rotate() {}, fillRect() {},
+    globalAlpha: 1, save() {}, restore() {}, translate() {}, rotate() {}, scale() {}, fillRect() {},
     drawImage(...args) { assert.ok(args[0]); args.slice(1).forEach(n => assert.ok(Number.isFinite(n))); draws.push(args); },
     createRadialGradient() { return { addColorStop() {} }; }
   });
@@ -52,12 +52,13 @@ test('a failed sprite permits play and requests fallback only for missing art', 
 
 test('textured recoil moves only firing mounts along the barrel while the platform stays fixed', async () => {
   const f=fixture(),pending=f.art.load();f.requests.forEach(image=>image.onload());await pending;
-  const {RECOIL,SIDE_GUN}=require('../sea-engine'),p=RECOIL.howitzer,g=RECOIL.machinegun;
-  const transforms=[],ctx=f.context();ctx.translate=(...args)=>transforms.push(args);f.draws.length=0;
+  const {RECOIL,SIDE_GUN,TURRET_SCALE}=require('../sea-engine'),p=RECOIL.howitzer,g=RECOIL.machinegun;
+  const transforms=[],scales=[],ctx=f.context();ctx.translate=(...args)=>transforms.push(args);ctx.scale=(...args)=>scales.push(args);f.draws.length=0;
   f.art.battery(ctx,480,300,1,p.duration-p.kick,{primary:'howitzer',secondary:'machinegun'},[g.duration-g.kick,0]);
   assert.deepEqual(f.draws[0].slice(1),[-59.5,-59.5,119,119]);
-  assert.ok(Math.abs(f.draws[1][5]-(SIDE_GUN.forward-SIDE_GUN.size*.98-g.distance))<1e-8);
-  assert.equal(f.draws[2][5],SIDE_GUN.forward-SIDE_GUN.size*.98);
+  assert.deepEqual(scales,[[TURRET_SCALE,TURRET_SCALE]]);
+  assert.ok(Math.abs(f.draws[1][5]-((SIDE_GUN.forward-SIDE_GUN.size*.98)/TURRET_SCALE-g.distance))<1e-8);
+  assert.ok(Math.abs(f.draws[2][5]-(SIDE_GUN.forward-SIDE_GUN.size*.98)/TURRET_SCALE)<1e-8);
   assert.ok(Math.abs(transforms.at(-1)[0]+p.distance)<1e-8);assert.equal(transforms.at(-1)[1],0);
 });
 
@@ -82,11 +83,11 @@ test('equipped primary and secondary choose distinct textures; missing new art r
     assert.equal(f.draws.length,4);
     selected.push(f.draws[1][0],f.draws[3][0]);
     assert.equal(f.draws[1][0],f.draws[2][0]);
-    const {forward,lateral,size}=require('../sea-engine').SIDE_GUN;
+    const {SIDE_GUN:{forward,lateral,size},TURRET_SCALE}=require('../sea-engine');
     for (const [index,side] of [[1,-1],[2,1]]) {
       const draw=f.draws[index], muzzleY=secondary==='twin' ? .38 : .505;
-      assert.ok(Math.abs(draw[5]+size*.98-forward)<1e-9);
-      assert.ok(Math.abs(draw[6]+size*muzzleY-side*lateral)<1e-9);
+      assert.ok(Math.abs(draw[5]+size*.98/TURRET_SCALE-forward/TURRET_SCALE)<1e-9);
+      assert.ok(Math.abs(draw[6]+size*muzzleY/TURRET_SCALE-side*lateral/TURRET_SCALE)<1e-9);
     }
   }
   assert.equal(new Set(selected).size,6);
