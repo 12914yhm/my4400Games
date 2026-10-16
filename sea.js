@@ -33,6 +33,7 @@
   const $ = selector => dialog.querySelector(selector);
   const canvas = $('canvas'), ctx = canvas.getContext('2d');
   let game, raf = 0, lastTime = 0, uiTime = 0, lastPhase = '', overlayKey = '', onPlay, played = false;
+  let canvasLost = false, recoveringFrame = false, frameFailures = 0, lastFrameFailure = 0;
   let best = 0, pointer = null, restartConfirm = false;
   let stickPointer = null, cannonPointer = null, ownsFullscreen = false, ownsOrientation = false, displayRequest = 0, displayPromise = null;
   const mobile = () => !!window.matchMedia?.('(pointer: coarse)').matches && Math.min(window.innerWidth,window.innerHeight) <= 900;
@@ -149,10 +150,13 @@
   function release() { pointer = stickPointer = cannonPointer = null; $('#sea-stick-knob').style.transform='translate(0,0)'; game?.release(); }
   function resize() {
     const scale = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = VIEW_W * scale; canvas.height = VIEW_H * scale; ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    const width = Math.round(VIEW_W * scale), height = Math.round(VIEW_H * scale);
+    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
   }
   function reset() {
     saveBest(); release(); audio.stop(); game = window.SeaEngine.create(); restartConfirm = false;
+    frameFailures = 0; recoveringFrame = false;
     showHelp(false);armoryOpen=false;armoryKey='';lastPhase = ''; overlayKey = ''; lastTime = 0; update(true);
   }
   function startPlay() {
@@ -450,13 +454,41 @@
   }
   function frame(time) {
     if(!dialog.open)return;
-    const dt=lastTime?Math.min(.05,(time-lastTime)/1000):0;lastTime=time;
-    game.step(dt);draw();audio.syncFlight?.(game.state.bullets);
-    if(time-uiTime>100||lastPhase!==game.state.phase){update();uiTime=time;}
-    for(const kind of game.drainSounds()) audio.play(kind);
-    if(owner && canSave && !saving && !loadingSave && !conflict && game.state.phase === 'playing' && Date.now()-lastSave>5000) persist();
     raf=requestAnimationFrame(frame);
+    if (canvasLost || recoveringFrame) return;
+    try {
+      const dt=lastTime?Math.min(.05,(time-lastTime)/1000):0;lastTime=time;
+      game.step(dt);draw();
+      if(time-uiTime>100||lastPhase!==game.state.phase){update();uiTime=time;}
+      for(const kind of game.drainSounds()) audio.play(kind);
+      if(owner && canSave && !saving && !loadingSave && !conflict && game.state.phase === 'playing' && Date.now()-lastSave>5000) persist();
+    } catch (error) {
+      console.error('Sea defense frame failed', error);
+      game.pause(true);release();audio.stop();lastTime=0;
+      if (time-lastFrameFailure>10000) frameFailures=0;
+      frameFailures++;lastFrameFailure=time;
+      if (frameFailures > 1) { recoveringFrame = true; notify('画面发生异常，本局已暂停。请刷新页面后继续已保存的进度。'); return; }
+      recoveringFrame = true;
+      let reload;
+      try { reload = art.reload?.(); } catch (error) { console.error('Sea art reload failed', error); }
+      resize();recoveringFrame=false;update(true);
+      Promise.resolve(reload).catch(error => console.error('Sea art reload failed', error)).finally(() => {
+        if (dialog.open) { update(true);notify('画面已恢复，点击继续战斗。'); }
+      });
+      return;
+    }
+    try { audio.syncFlight?.(game.state.bullets); }
+    catch (error) { console.warn('Sea flight audio stopped', error); audio.stop(); }
   }
+  canvas.addEventListener('contextlost',event=>{
+    event.preventDefault();canvasLost=true;
+    if (game) { game.pause(true);release();audio.stop();update(true);notify('画面暂时中断，正在恢复…'); }
+  });
+  canvas.addEventListener('contextrestored',()=>{
+    canvasLost=false;lastTime=0;resize();
+    Promise.resolve(art.reload?.()).then(()=>{if(dialog.open){update(true);notify('画面已恢复，点击继续战斗。');}})
+      .catch(error=>console.error('Sea art reload failed',error));
+  });
   function aim(event){const r=canvas.getBoundingClientRect();game.setAim((event.clientX-r.left)/r.width*VIEW_W-VIEW_PAD_X,(event.clientY-r.top)/r.height*VIEW_H-VIEW_PAD_Y);}
   canvas.addEventListener('pointermove',event=>{if(game.state.phase==='playing'&&!game.state.paused&&stickPointer===null&&(pointer===null||pointer===event.pointerId))aim(event);});
   canvas.addEventListener('pointerdown',event=>{if(game.state.phase!=='playing'||game.state.paused||event.button!==0||pointer!==null||stickPointer!==null)return;event.preventDefault();pointer=event.pointerId;canvas.setPointerCapture(pointer);canvas.focus({preventScroll:true});aim(event);game.trigger('secondary',true);});

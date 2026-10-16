@@ -9,7 +9,7 @@
   for(const id of ['laser','railgun','plasma','cryo','tesla'])sources['weapon_'+id]='weapon-'+id+'-v1.svg';
   for(const id of ['raider','missile','guardian','tender','dreadnought'])sources[id]=id+'-v1.svg';
   const textures = {}, flashes = {}, frames = [];
-  let pending, status = 'idle', loaded = 0;
+  let pending, status = 'idle', loaded = 0, generation = 0;
   function surface(w, h) {
     const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
     return canvas;
@@ -36,42 +36,59 @@
     const c = tile.getContext('2d'); c.imageSmoothingQuality = 'high';
     c.drawImage(image, 0, 0, tile.width, tile.height); textures[id] = tile;
     if (window.SeaEngine.TYPES[id]) {
-      const flash = surface(tile.width, tile.height), f = flash.getContext('2d');
-      f.drawImage(tile, 0, 0); f.globalCompositeOperation = 'source-in';
-      f.fillStyle = '#fff0c7'; f.fillRect(0, 0, flash.width, flash.height); flashes[id] = flash;
+      // A failed optional hit-flash surface must not leave a valid hull texture
+      // paired with an undefined image that crashes the next damaged frame.
+      try {
+        const flash = surface(tile.width, tile.height), f = flash.getContext('2d');
+        f.drawImage(tile, 0, 0); f.globalCompositeOperation = 'source-in';
+        f.fillStyle = '#fff0c7'; f.fillRect(0, 0, flash.width, flash.height); flashes[id] = flash;
+      } catch { /* The hull remains playable without a flash overlay. */ }
     }
   }
   function load() {
     if (pending) return pending;
     status = 'loading';
+    const current = generation;
     pending = Promise.all(Object.entries(sources).map(([id, filename]) => new Promise(resolve => {
       const image = new Image(); let done = false;
       const finish = ok => {
         if (done) return; done = true; clearTimeout(timeout);
         image.onload = image.onerror = null;
-        if (ok) { try { prepare(id, image); loaded++; } catch { /* Retain vector fallback. */ } }
+        if (ok && current === generation) { try { prepare(id, image); loaded++; } catch { /* Retain vector fallback. */ } }
         resolve();
       };
       const timeout = setTimeout(() => finish(false), 30000);
       image.onload = () => finish(true); image.onerror = () => finish(false);
       image.src = './art/sea/' + filename + (filename.endsWith('.svg')?'':'.png');
-    }))).then(() => { status = loaded === Object.keys(sources).length ? 'ready' : 'partial'; });
+    }))).then(() => { if (current === generation) status = loaded === Object.keys(sources).length ? 'ready' : 'partial'; });
     return pending;
+  }
+  function reload() {
+    generation++; pending = null; loaded = 0; status = 'idle';
+    for (const key of Object.keys(textures)) delete textures[key];
+    for (const key of Object.keys(flashes)) delete flashes[key];
+    frames.length = 0;
+    return load();
   }
   function ocean(ctx, w, h) {
     const image = textures.ocean; if (!image) return false;
     const scale = Math.max(w / image.width, h / image.height);
-    ctx.drawImage(image, (w - image.width * scale) / 2, (h - image.height * scale) / 2, image.width * scale, image.height * scale);
-    return true;
+    try { ctx.drawImage(image, (w - image.width * scale) / 2, (h - image.height * scale) / 2, image.width * scale, image.height * scale); return true; }
+    catch { delete textures.ocean; status = 'partial'; return false; }
   }
   // The caller supplies a context translated and rotated to the enemy.
   function ship(ctx, enemy) {
     const image = textures[enemy.type]; if (!image) return false;
     const w = enemy.radius * 3.8, h = w * image.height / image.width;
-    ctx.drawImage(image, -w / 2, -h / 2, w, h);
-    if (enemy.flash > 0) {
-      ctx.save(); ctx.globalAlpha *= .65 * Math.min(1, enemy.flash / .09);
-      ctx.drawImage(flashes[enemy.type], -w / 2, -h / 2, w, h); ctx.restore();
+    try { ctx.drawImage(image, -w / 2, -h / 2, w, h); }
+    catch { delete textures[enemy.type]; status = 'partial'; return false; }
+    if (enemy.flash > 0 && flashes[enemy.type]) {
+      ctx.save();
+      try {
+        ctx.globalAlpha *= .65 * Math.min(1, enemy.flash / .09);
+        ctx.drawImage(flashes[enemy.type], -w / 2, -h / 2, w, h);
+      } catch { delete flashes[enemy.type]; }
+      finally { ctx.restore(); }
     }
     return true;
   }
@@ -79,7 +96,9 @@
     const primary = textures['weapon_' + (loadout.primary || 'cannon')] || textures.turret;
     const secondary = textures['weapon_' + (loadout.secondary || 'machinegun')];
     if (!textures.base || !primary) return false;
-    ctx.save(); ctx.translate(x, y);
+    ctx.save();
+    try {
+    ctx.translate(x, y);
     const { TURRET_SCALE, SIDE_GUN, recoilOffset } = window.SeaEngine;
     ctx.scale(TURRET_SCALE, TURRET_SCALE);
     ctx.drawImage(textures.base, -59.5, -59.5, 119, 119);
@@ -97,15 +116,21 @@
     ctx.translate(-recoilOffset(loadout.primary || 'cannon', recoil), 0);
     // Bearing and gun muzzles share the simulation's reduced turret geometry.
     ctx.drawImage(primary, -28.6, -40, 82, 82);
-    ctx.restore(); return true;
+    return true;
+    } catch { status = 'partial'; return false; }
+    finally { ctx.restore(); }
   }
   function explosion(ctx, effect) {
     if (frames.length !== 16) return false;
     const progress = Math.max(0, Math.min(.999, effect.age / effect.duration));
     const frame = frames[Math.floor(progress * 16)], size = effect.size * 2.3;
-    ctx.save(); ctx.globalAlpha *= Math.min(1, (1 - progress) / .3);
-    ctx.drawImage(frame, effect.x - size / 2, effect.y - size / 2, size, size);
-    ctx.restore(); return true;
+    ctx.save();
+    try {
+      ctx.globalAlpha *= Math.min(1, (1 - progress) / .3);
+      ctx.drawImage(frame, effect.x - size / 2, effect.y - size / 2, size, size);
+      return true;
+    } catch { status = 'partial'; return false; }
+    finally { ctx.restore(); }
   }
-  window.SeaArt = { load, ocean, ship, battery, explosion, get status() { return status; }, get loaded() { return loaded; } };
+  window.SeaArt = { load, reload, ocean, ship, battery, explosion, get status() { return status; }, get loaded() { return loaded; } };
 })();

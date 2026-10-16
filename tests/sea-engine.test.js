@@ -171,9 +171,9 @@ test('each hull class produces a matching sinking sequence and sound without cha
   }
 });
 
-test('a shot crossing the newly visible edge of a doubled ship registers a hit',()=>{
+test('a shot crossing the visible edge of a resized ship registers a hit',()=>{
   const {SHIP_SCALE,TURRET_SCALE,MAIN_MUZZLE,SIDE_GUN}=require('../sea-engine');
-  assert.equal(SHIP_SCALE,2);assert.equal(TURRET_SCALE,.75);
+  assert.equal(SHIP_SCALE,1.5);assert.equal(TURRET_SCALE,.9375);
   assert.equal(MAIN_MUZZLE,49*TURRET_SCALE);
   assert.equal(SIDE_GUN.forward,37*TURRET_SCALE);
   const game=fixture(),target=enemy('patrol',CX+160,CY+TYPES.patrol.radius*1.5);

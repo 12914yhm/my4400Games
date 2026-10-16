@@ -11,7 +11,7 @@
   });
   const campaign = typeof module !== 'undefined' && module.exports ? require('./sea-campaign') : root.SeaCampaign;
   const {WAVES,LEVELS,TYPES} = campaign;
-  const TURRET_SCALE = .75, SHIP_SCALE = 2;
+  const TURRET_SCALE = .75 * 1.25, SHIP_SCALE = 2 * .75;
   const MAIN_MUZZLE = 49 * TURRET_SCALE;
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
   const SIDE_GUN = Object.freeze({ forward: 37 * TURRET_SCALE, lateral: 29 * TURRET_SCALE, size: 44 * TURRET_SCALE });

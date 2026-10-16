@@ -5,11 +5,12 @@ const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '..', 'sea-art.js'), 'utf8');
 
-function fixture() {
+function fixture({failFlash = false} = {}) {
   const requests = [], timers = new Map(), draws = [];
   let serial = 0;
   const context = () => ({
-    globalAlpha: 1, save() {}, restore() {}, translate() {}, rotate() {}, scale() {}, fillRect() {},
+    globalAlpha: 1, save() {}, restore() {}, translate() {}, rotate() {}, scale() {},
+    fillRect() { if (failFlash && this.globalCompositeOperation === 'source-in') throw new Error('flash surface unavailable'); },
     drawImage(...args) { assert.ok(args[0]); args.slice(1).forEach(n => assert.ok(Number.isFinite(n))); draws.push(args); },
     createRadialGradient() { return { addColorStop() {} }; }
   });
@@ -48,6 +49,24 @@ test('a failed sprite permits play and requests fallback only for missing art', 
   assert.equal(f.art.ship(f.context(), { type: 'patrol', radius: 17 }), false);
   assert.equal(f.art.ship(f.context(), { type: 'boss', radius: 37 }), true);
   assert.equal(f.timers.size, 0);
+});
+
+test('a missing optional hit-flash surface does not stop rendering damaged ships', async () => {
+  const f=fixture({failFlash:true}),pending=f.art.load();
+  f.requests.forEach(image=>image.onload());await pending;
+  assert.equal(f.art.status,'ready');
+  assert.equal(f.art.ship(f.context(),{type:'patrol',radius:25,flash:.09}),true);
+  assert.equal(f.art.battery(f.context(),480,300,0,0),true);
+});
+
+test('reloading art after a canvas reset rebuilds hull and turret textures',async()=>{
+  const f=fixture(),first=f.art.load();f.requests.forEach(image=>image.onload());await first;
+  const second=f.art.reload();
+  assert.equal(f.art.status,'loading');assert.equal(f.requests.length,50);
+  f.requests.slice(25).forEach(image=>image.onload());await second;
+  assert.equal(f.art.status,'ready');assert.equal(f.art.loaded,25);
+  assert.equal(f.art.ship(f.context(),{type:'patrol',radius:25,flash:.09}),true);
+  assert.equal(f.art.battery(f.context(),480,300,0,0),true);
 });
 
 test('textured recoil moves only firing mounts along the barrel while the platform stays fixed', async () => {

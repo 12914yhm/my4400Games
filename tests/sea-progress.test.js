@@ -35,13 +35,14 @@ function fixture(user = null) {
     reads.push(route);if(failRead)throw new Error('读取失败');return{revision:storedRevision,snapshot,bestScore:0,updatedAt:null};
   }};
   const art={status:'ready',load:()=>Promise.resolve(),ocean:()=>true,battery:()=>{drawings.push('battery');return true;},ship:()=>{drawings.push('ship');return true;},explosion:()=>true};
-  const window={SeaEngine:{...Engine,create:()=>activeGame=Engine.create()},SeaArt:art,SeaAudio:{create:()=>({stop(){},unlock(){},drainSounds(){},play(){}})},Accounts:account,innerWidth:844,innerHeight:390,matchMedia:()=>({matches:touch}),addEventListener:(n,f)=>globals[n]=f};
+  const audio={stop(){},unlock(){},drainSounds(){},play(){},syncFlight(){}};
+  const window={SeaEngine:{...Engine,create:()=>activeGame=Engine.create()},SeaArt:art,SeaAudio:{create:()=>audio},Accounts:account,innerWidth:844,innerHeight:390,matchMedia:()=>({matches:touch}),addEventListener:(n,f)=>globals[n]=f};
   const document={body:{append(){}},createElement:t=>t==='dialog'?dialog:new Element(),addEventListener:(n,f)=>globals[n]=f};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../sea.js'),'utf8'),{window,document,Date,Math,requestAnimationFrame:f=>{frames.set(++sequence,f);return sequence;},cancelAnimationFrame:id=>frames.delete(id)});
   const action=name=>dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-action]'?{dataset:{seaAction:name}}:null}});
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   function frame(time) { const [id,fn]=frames.entries().next().value;frames.delete(id);fn(time); }
-  return {window,document,globals,get game(){return activeGame;},setTouch:v=>touch=v,dialog,element,writes,reads,action,flush,drawings,wakeDrawings,frames,frame,art,setReadFailure:v=>failRead=v,setWriteFailure:v=>failWrite=v,setSnapshot:v=>snapshot=v};
+  return {window,document,globals,get game(){return activeGame;},setTouch:v=>touch=v,dialog,element,writes,reads,action,flush,drawings,wakeDrawings,frames,frame,art,audio,setReadFailure:v=>failRead=v,setWriteFailure:v=>failWrite=v,setSnapshot:v=>snapshot=v};
 }
 
 test('help pauses combat, releases firing and closes when resuming or opening weapons',async()=>{
@@ -124,6 +125,34 @@ test('missing ship and battery textures still render using compatible canvas pat
   const f=fixture();f.art.ship=()=>false;f.art.battery=()=>false;
   await f.window.SeaDefense.open();await f.action('start');f.frame(1000);f.frame(1016);
   assert.ok(f.drawings.includes('quadraticCurveTo'));assert.equal(f.frames.size,1);
+  await f.dialog.close();
+});
+
+test('a transient drawing or flight-audio error cannot silently stop the battle loop',async()=>{
+  const f=fixture();await f.window.SeaDefense.open();await f.action('start');
+  f.game.state.enemies=[{...Engine.TYPES.patrol,type:'patrol',x:200,y:200,angle:0,hp:20,maxHp:54,age:0,flash:.09}];
+  const ship=f.art.ship;let broken=true;
+  f.art.ship=(...args)=>{if(broken){broken=false;throw new Error('lost sprite');}return ship(...args);};
+  f.frame(1000);await f.flush();
+  assert.equal(f.game.state.paused,true);
+  assert.equal(f.frames.size,1,'a render error leaves a recovery frame scheduled');
+  f.audio.syncFlight=()=>{throw new Error('audio device lost');};
+  f.frame(1016);
+  assert.equal(f.frames.size,1,'audio device loss does not stop rendering');
+  await f.dialog.close();
+});
+
+test('canvas context loss pauses the game and restoration keeps its progress',async()=>{
+  const f=fixture();await f.window.SeaDefense.open();await f.action('start');
+  let prevented=false;
+  await f.element('canvas').emit('contextlost',{preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);assert.equal(f.game.state.paused,true);
+  const snapshot=f.game.snapshot();f.frame(1000);
+  assert.equal(f.frames.size,1);
+  await f.element('canvas').emit('contextrestored');await f.flush();
+  assert.equal(f.game.state.wave,snapshot.state.wave);
+  assert.equal(f.game.state.paused,true);
+  f.frame(1016);assert.equal(f.frames.size,1);
   await f.dialog.close();
 });
 test('guests play and close without reading or writing a save',async()=>{
