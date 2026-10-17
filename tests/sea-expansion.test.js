@@ -35,6 +35,8 @@ test('freezing bullets slow enemies, persist status and allow thawing',()=>{
 });
 test('repair ships heal nearby living allies and missile ships fire a three-round volley',()=>{
  const g=game(),tender=ship('tender',1,700),ally=ship('armored',2,730);tender.cooldown=0;ally.hp=500;g.state.enemies=[tender,ally];advance(g,.01);
+ assert.equal(ally.hp,500);assert.ok(tender.windup>0);
+ advance(g,E.GUNSHIP_WINDUP+.02);
  assert.equal(ally.hp,528);assert.ok(g.state.effects.some(e=>e.kind==='repair'&&Math.hypot(e.x-ally.x,e.y-ally.y)<5));
  const h=game(),missile=ship('missile',1,700);missile.cooldown=0;h.state.enemies=[missile];advance(h,.01);
  assert.equal(h.state.hostile.length,0);assert.ok(missile.windup>0);
@@ -62,7 +64,7 @@ test('destroying a locking missile ship cancels its volley and old saves default
  const old=g.snapshot();delete old.state.enemies[0].windup;
  assert.equal(Save.clean(old).state.enemies[0].windup,0);
  const bad=g.snapshot();bad.state.enemies[0].windup=3;
- assert.throws(()=>Save.clean(bad),/导弹锁定/);
+ assert.throws(()=>Save.clean(bad),/开火预警/);
  g.setAim(missile.x,missile.y);g.trigger('primary',true);g.release();
  advance(g,E.MISSILE_WINDUP+.1);assert.equal(g.state.hostile.length,0);
 });
@@ -119,4 +121,110 @@ test('old eight-wave victories continue at chapter three and expanded saves roun
  const saved=h.snapshot(),r=E.create();r.restore(saved);assert.deepEqual(r.snapshot().state.enemies,saved.state.enemies);assert.equal(saved.version,2);
  const bad=structuredClone(saved);bad.state.enemies[0].barrier=101;assert.throws(()=>Save.clean(bad));
  const final=structuredClone(saved);final.state.phase='victory';assert.equal(Save.clean(final).state.phase,'victory');
+});
+test('gunships warn before firing, preserve warning through pause and saves, and cancel on sinking',()=>{
+ const g=game('laser'),target=ship('patrol',1,700);target.cooldown=0;g.state.enemies=[target];g.state.spawnLeft=1;
+ advance(g,.01);assert.equal(g.state.hostile.length,0);assert.ok(target.windup>0&&target.windup<=E.GUNSHIP_WINDUP);
+ advance(g,.4);assert.equal(g.state.hostile.length,0);assert.ok(target.windup>0);
+ const pending=target.windup;g.pause(true);advance(g,1);assert.equal(target.windup,pending);
+ const saved=g.snapshot();assert.equal(saved.state.enemies[0].windup,pending);
+ const restored=E.create();restored.restore(saved);assert.equal(restored.state.enemies[0].windup,pending);
+ restored.pause(false);advance(restored,pending+.04);assert.equal(restored.state.hostile.length,1);
+ assert.ok(restored.state.enemies[0].cooldown>0);
+ const old=structuredClone(saved);delete old.state.enemies[0].windup;
+ assert.equal(Save.clean(old).state.enemies[0].windup,0);
+ const bad=structuredClone(saved);bad.state.enemies[0].windup=1;
+ assert.throws(()=>Save.clean(bad),/开火预警/);
+ g.pause(false);target.hp=35;g.setAim(target.x,target.y);g.trigger('primary',true);g.release();
+ assert.equal(g.state.enemies[0].hp<=0,true);advance(g,E.GUNSHIP_WINDUP+1);assert.equal(g.state.hostile.length,0);
+});
+test('chill slows warning and missile lock keeps its longer duration',()=>{
+ const g=game(),target=ship('armored',1,700);target.cooldown=0;target.chill=2;g.state.enemies=[target];g.state.spawnLeft=1;
+ advance(g,.01);assert.ok(target.windup>0&&target.windup<=E.GUNSHIP_WINDUP);
+ advance(g,.5);assert.ok(target.windup>.6);assert.equal(g.state.hostile.length,0);
+ const h=game(),missile=ship('missile',1,700);missile.cooldown=0;h.state.enemies=[missile];h.state.spawnLeft=1;
+ advance(h,.01);assert.ok(missile.windup>2&&missile.windup<=E.MISSILE_WINDUP);
+ advance(h,1);assert.equal(h.state.hostile.length,0);assert.ok(missile.windup>1);
+});
+test('waves eight and nine open with spaced escort pairs at every difficulty without exceeding ship caps',()=>{
+ for(const wave of [8,9])for(const mode of ['low','normal','high']){
+  const g=E.create(()=>.5);g.state.wave=wave;g.setDifficulty(mode);g.start();
+  assert.deepEqual(E.LEVELS[wave-1].fleet.slice(0,2),wave===8?['guardian','armored']:['tender','guardian']);
+  const budget=g.state.spawnLeft;advance(g,.85);assert.equal(g.state.enemies.length,1);
+  assert.equal(g.state.spawnLeft,budget-1);assert.ok(g.state.spawnTimer<.7);
+  advance(g,.7);assert.equal(g.state.enemies.length,2);
+  const [a,b]=g.state.enemies,spacing=Math.hypot(a.x-b.x,a.y-b.y);
+  assert.ok(spacing>=95&&spacing<=120,`${wave}/${mode}: ${spacing}`);
+  assert.ok(wave===8?a.x> E.W&&b.x>E.W:a.y<0&&b.y<0);
+  assert.equal(g.state.spawnLeft,budget-2);
+  assert.ok(g.state.spawnTimer>.7);
+  const cap=E.DIFFICULTIES[mode].maxAlive+Math.floor((wave-1)/4);
+  advance(g,7);assert.ok(g.state.enemies.length<=cap,`${wave}/${mode} exceeded cap`);
+ }
+});
+test('an escort pair resumes its second arrival after saving between spawns',()=>{
+ const g=E.create(()=>.5);g.state.wave=9;g.setDifficulty('low');g.start();advance(g,.85);
+ assert.equal(g.state.enemies.length,1);assert.equal(g.state.enemies[0].type,'tender');
+ const resumed=E.create(()=>.1);resumed.restore(g.snapshot());resumed.pause(false);
+ advance(resumed,.7);
+ assert.deepEqual(resumed.state.enemies.map(e=>e.type),['tender','guardian']);
+ const [a,b]=resumed.state.enemies;
+ assert.ok(Math.hypot(a.x-b.x,a.y-b.y)<E.GUARDIAN_AURA);
+});
+test('opening escorts hold support range for nine seconds and release after leader sinks',()=>{
+ for(const wave of [8,9]){
+  const g=E.create(()=>.5);g.state.wave=wave;g.setDifficulty('low');g.start();advance(g,1.55);
+  assert.equal(g.state.enemies.length,2);
+  g.state.spawnTimer=9;
+  let saved;
+  for(let i=0;i<15;i++){
+   g.state.spawnTimer=9;
+   advance(g,.5);
+   const [leader,wing]=g.state.enemies;
+   const distance=Math.hypot(leader.x-wing.x,leader.y-wing.y);
+   assert.ok(distance>=100&&distance<=115,`${wave} escort separation ${distance} at ${i*.5}s`);
+   if(i===7)saved=g.snapshot();
+  }
+  assert.equal(saved.state.enemies[0].escort,1);
+  assert.equal(saved.state.enemies[1].escort,2);
+  const resumed=E.create(()=>.1);resumed.restore(saved);resumed.pause(false);resumed.state.spawnTimer=9;
+  advance(resumed,2);
+  assert.ok(Math.hypot(resumed.state.enemies[0].x-resumed.state.enemies[1].x,
+    resumed.state.enemies[0].y-resumed.state.enemies[1].y)<130);
+  const wing=g.state.enemies[1],before={x:wing.x,y:wing.y};
+  g.state.enemies[0].hp=0;advance(g,.01);
+  assert.equal(wing.escort,0);
+  assert.ok(Math.hypot(wing.x-before.x,wing.y-before.y)<3,'wing resumes normal independent movement');
+ }
+});
+test('escort fields are optional for old saves and reject forged roles',()=>{
+ const g=E.create(()=>.5);g.state.wave=8;g.start();advance(g,1.55);
+ const save=g.snapshot();const old=structuredClone(save);
+ old.state.enemies.forEach(enemy=>delete enemy.escort);
+ assert.ok(Save.clean(old).state.enemies.every(enemy=>enemy.escort===0));
+ const forged=structuredClone(save);forged.state.enemies[1].escort=3;
+ assert.throws(()=>Save.clean(forged),/护航编队/);
+ const wrongWave=structuredClone(save);wrongWave.state.wave=7;
+ assert.throws(()=>Save.clean(wrongWave),/护航编队/);
+});
+test('chilling either escort slows the entire formation without breaking support range',()=>{
+ const run=(role,emp=false)=>{
+  const g=E.create(()=>.5);g.state.wave=9;g.setDifficulty('low');g.start();advance(g,1.55);
+  g.state.spawnTimer=9;
+  if(role)g.state.enemies[role-1].chill=2;
+  if(emp)g.state.freeze=2;
+  const before=g.state.enemies.map(e=>({x:e.x,y:e.y}));advance(g,1);
+  const movement=g.state.enemies.map((e,i)=>Math.hypot(e.x-before[i].x,e.y-before[i].y));
+  const [leader,wing]=g.state.enemies;
+  assert.ok(Math.hypot(leader.x-wing.x,leader.y-wing.y)<130);
+  return movement;
+ };
+ const normal=run(0);
+ for(const role of [1,2]){
+  const slowed=run(role);
+  assert.ok(slowed[0]<normal[0]*.6,`leader ignores chilled role ${role}`);
+  assert.ok(slowed[1]<normal[1]*.6,`wing ignores chilled role ${role}`);
+ }
+ const emp=run(0,true);
+ assert.ok(emp[0]<normal[0]*.35&&emp[1]<normal[1]*.35);
 });

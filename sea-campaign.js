@@ -26,8 +26,8 @@
     ['烈火航道','raider fast patrol','汽油艇会冲撞自爆，优先拦截。'],
     ['远程封锁','missile destroyer raider','导弹舰锁定后才齐射；可先击沉它，或用机枪拦截导弹。'],
     ['寒潮反击','raider missile submarine','冷冻机枪减缓敌舰移动与开火。'],
-    ['钢铁突破','guardian armored missile destroyer','护盾舰会保护附近友舰，优先击破；电磁炮可无视护盾。'],
-    ['护航编队','tender guardian patrol destroyer','维修舰会修复附近友舰，优先击沉。'],
+    ['钢铁突破','guardian armored missile destroyer','护盾舰与巡洋舰将结伴入场；注意舰旁开火预警，优先击破护盾。'],
+    ['护航编队','tender guardian patrol destroyer','维修舰与护盾舰结伴入场；趁开火预警优先击沉维修舰。'],
     ['雷暴海域','fast tender fighter raider','舰载攻击机速度很快，电弧机枪可连锁拦截。'],
     ['深水暗流','submarine guardian missile fighter','水下与空中威胁同时来袭。'],
     ['等离子风暴','guardian tender armored destroyer','航母将放飞舰载机，优先压制。'],
@@ -39,11 +39,18 @@
   const LEVELS=specs.map(([name,pattern,hint],i)=>{
     const wave=i+1,total=wave<=8?5+wave*2:wave+13,pool=pattern.split(' ');
     const fleet=Array.from({length:total},(_,j)=>pool[j%pool.length]);
+    if(wave===8){fleet[0]='guardian';fleet[1]='armored';}
+    if(wave===9){fleet[0]='tender';fleet[1]='guardian';}
     if(wave%4===0)fleet[total-1]=wave===16?'dreadnought':'boss';
     if([8,14,15,16].includes(wave))fleet[total-(wave%4===0?2:1)]='battleship';
     if([12,15,16].includes(wave))fleet[total-(wave%4===0?3:2)]='carrier';
     return {wave,name,chapter:chapters[Math.floor(i/4)],hint,fleet};
   });
-  const api={TYPES,LEVELS,WAVES:LEVELS.length,MAX_ENEMIES:40};
+  const TRIAL_LEVELS=[
+    {wave:1,name:'近海清剿',chapter:'短试玩',hint:'击沉全部 6 艘来袭敌舰。',fleet:['patrol','fast','patrol','destroyer','fast','armored']},
+    {wave:2,name:'守住航道',chapter:'短试玩',hint:'坚持 35 秒；拦截 2 发敌弹可获得额外评价。',fleet:['patrol','destroyer','fast','armored','patrol','destroyer','fast','armored']},
+    {wave:3,name:'斩首行动',chapter:'短试玩',hint:'两艘护航舰先到，指挥舰随后出现；只需击沉标记指挥舰即可取胜。',fleet:['guardian','armored','armored']}
+  ];
+  const api={TYPES,LEVELS,TRIAL_LEVELS,WAVES:LEVELS.length,MAX_ENEMIES:40};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.SeaCampaign=api;
 })(typeof window==='undefined'?globalThis:window);

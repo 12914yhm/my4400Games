@@ -161,6 +161,9 @@
 .sea-shop h3 { font-size: 24px; color: #e7f0e8; }
 .sea-overlay-copy { font-size: 12px; color: #a6c1be; }
 .sea-shop-card { border-color: #ffffff1c; background: #203c43; border-radius: 10px; padding: 12px; }
+.sea-trial-shop .sea-shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sea-trial-shop .sea-shop-card { min-height: 94px; }
+.sea-touch .sea-trial-shop .sea-shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sea-shop-card>span { font-size: 12px; }
 .sea-shop-card p { font-size: 10px; color: #a5bfba; }
 .sea-shop-card b { font-size: 12px; color: #e2cc98; }

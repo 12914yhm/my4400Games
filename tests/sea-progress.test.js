@@ -7,8 +7,8 @@ const Engine = require('../sea-engine');
 
 // Exercise orchestration with controlled network responses, without a browser.
 function fixture(user = null) {
-  const elements = new Map(), writes = [], reads = [], frames = new Map(), globals = {}, drawings = [], wakeDrawings = [];
-  let sequence = 0, snapshot = null, failRead = false, failWrite = false, storedRevision = 0, activeGame, touch = false;
+  const elements = new Map(), writes = [], reads = [], frames = new Map(), globals = {}, drawings = [], wakeDrawings = [], strokes = [];
+  let sequence = 0, snapshot = null, failRead = false, failWrite = false, writeGate = null, storedRevision = 0, activeGame, touch = false;
   class Element {
     constructor() { this.textContent='';this.style={};this.dataset={};this.events={};this.classList={toggle(){}};this.open=false; }
     addEventListener(name, fn) { (this.events[name] ||= []).push(fn); }
@@ -22,12 +22,13 @@ function fixture(user = null) {
   // Use the older Canvas API deliberately: a catch-all mock masks unsupported calls.
   const context = { globalAlpha: 1 };
   for (const name of ['beginPath','closePath','clearRect','fillRect','strokeRect','save','restore','translate','rotate','scale','setTransform','setLineDash','arc','ellipse','moveTo','lineTo','quadraticCurveTo','fill','stroke','fillText']) {
-    context[name] = (...args) => { for (const n of args) if (typeof n === 'number') assert.ok(Number.isFinite(n), name); drawings.push(name); if(name==='ellipse'&&args[0]<-10&&args[1]===0)wakeDrawings.push({x:args[0],rx:args[2],ry:args[3]}); };
+    context[name] = (...args) => { for (const n of args) if (typeof n === 'number') assert.ok(Number.isFinite(n), name); drawings.push(name); if(name==='stroke')strokes.push({color:context.strokeStyle,width:context.lineWidth}); if(name==='ellipse'&&args[0]<-10&&args[1]===0)wakeDrawings.push({x:args[0],rx:args[2],ry:args[3]}); };
   }
   for (const name of ['createRadialGradient','createLinearGradient']) context[name] = () => ({ addColorStop() {} });
   const dialog=new Element();
   const account={user,ready:Promise.resolve(),open(){},async api(route, options={}){
     if(options.method==='PUT'){
+      if(writeGate)await writeGate;
       if(failWrite)throw new Error('网络中断');
       const value=JSON.parse(options.body);assert.equal(value.revision,storedRevision);storedRevision++;
       writes.push(value);snapshot=value.snapshot;return{revision:storedRevision,updatedAt:new Date().toISOString(),bestScore:0};
@@ -36,13 +37,13 @@ function fixture(user = null) {
   }};
   const art={status:'ready',load:()=>Promise.resolve(),ocean:()=>true,battery:()=>{drawings.push('battery');return true;},ship:()=>{drawings.push('ship');return true;},explosion:()=>true};
   const audio={stop(){},unlock(){},drainSounds(){},play(){},syncFlight(){}};
-  const window={SeaEngine:{...Engine,create:()=>activeGame=Engine.create()},SeaArt:art,SeaAudio:{create:()=>audio},Accounts:account,innerWidth:844,innerHeight:390,matchMedia:()=>({matches:touch}),addEventListener:(n,f)=>globals[n]=f};
+  const window={SeaEngine:{...Engine,create:(...args)=>activeGame=Engine.create(...args)},SeaArt:art,SeaAudio:{create:()=>audio},Accounts:account,innerWidth:844,innerHeight:390,matchMedia:()=>({matches:touch}),addEventListener:(n,f)=>globals[n]=f};
   const document={body:{append(){}},createElement:t=>t==='dialog'?dialog:new Element(),addEventListener:(n,f)=>globals[n]=f};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../sea.js'),'utf8'),{window,document,Date,Math,requestAnimationFrame:f=>{frames.set(++sequence,f);return sequence;},cancelAnimationFrame:id=>frames.delete(id)});
   const action=name=>dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-action]'?{dataset:{seaAction:name}}:null}});
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   function frame(time) { const [id,fn]=frames.entries().next().value;frames.delete(id);fn(time); }
-  return {window,document,globals,get game(){return activeGame;},setTouch:v=>touch=v,dialog,element,writes,reads,action,flush,drawings,wakeDrawings,frames,frame,art,audio,setReadFailure:v=>failRead=v,setWriteFailure:v=>failWrite=v,setSnapshot:v=>snapshot=v};
+  return {window,document,globals,get game(){return activeGame;},setTouch:v=>touch=v,dialog,element,writes,reads,action,flush,drawings,wakeDrawings,strokes,frames,frame,art,audio,setReadFailure:v=>failRead=v,setWriteFailure:v=>failWrite=v,setWriteGate:v=>writeGate=v,setSnapshot:v=>snapshot=v};
 }
 
 test('help pauses combat, releases firing and closes when resuming or opening weapons',async()=>{
@@ -297,5 +298,101 @@ test('battlefield shows missile lock warning and guardian coverage in the canvas
   assert.match(f.element('#sea-wave-label').textContent,/导弹锁定/);
   assert.ok(f.drawings.filter(name=>name==='setLineDash').length>4);
   assert.ok(f.drawings.includes('battery'));
+  await f.dialog.close();
+});
+test('ordinary gunship warnings remain readable on a narrow landscape canvas',async()=>{
+  const f=fixture();f.setTouch(true);f.window.innerWidth=486;f.window.innerHeight=220;
+  await f.window.SeaDefense.open();await f.action('start');f.game.pause(true);
+  const target={...Engine.TYPES.armored,type:'armored',id:1,x:750,y:300,
+    radius:Engine.TYPES.armored.radius*1.2,hp:100,maxHp:100,angle:Math.PI,age:0,flash:0,
+    submerged:false,chill:0,barrier:0,windup:.6};
+  f.game.state.enemies=[target];f.frame(1000);
+  assert.ok(f.strokes.some(stroke=>stroke.width>=5&&stroke.color==='#ffae77'),'warning arc has mobile-readable width');
+  assert.ok(f.strokes.some(stroke=>stroke.width>=3.5&&/^rgba\(255,185,112,/.test(stroke.color)),'aim cue has stronger contrast');
+  await f.dialog.close();
+});
+test('short trial is clickable, offers one perk, and never overwrites the account campaign',async()=>{
+  const f=fixture({id:'test-user'}),formal=Engine.create(()=>.5);
+  f.setSnapshot(formal.snapshot());await f.window.SeaDefense.open();await f.flush();
+  assert.equal(f.game.mode,'campaign');assert.equal(f.reads.length,1);
+  await f.action('trial');assert.equal(f.game.mode,'trial');
+  assert.match(f.element('#sea-save-status').textContent,/不保存进度/);
+  assert.equal(f.element('#sea-save-action').disabled,true);
+  await f.action('start');assert.equal(f.game.state.phase,'playing');
+  f.game.state.spawnLeft=0;f.game.state.enemies=[];f.frame(1000);f.frame(1016);
+  assert.equal(f.game.state.phase,'shop');assert.match(f.element('.sea-overlay').innerHTML,/选择一项战场改造/);
+  await f.dialog.emit('click',{target:{closest:selector=>selector==='[data-sea-perk]'?{dataset:{seaPerk:'reload'}}:null}});
+  assert.deepEqual(f.game.state.trialPerks,['reload']);
+  await f.action('start');assert.equal(f.game.state.wave,2);
+  await f.action('campaign');
+  assert.match(f.element('#sea-wave').innerHTML,/16/);
+  assert.match(f.element('.sea-overlay').innerHTML,/开始正式战役/);
+  assert.ok(f.writes.length>=1);
+  assert.ok(f.writes.every(write=>write.snapshot.state.phase==='ready'));
+  assert.match(f.element('#sea-save-status').textContent,/已保存|账号存档/);
+  await f.dialog.close();
+});
+test('header trial switch preserves an active campaign, pauses controls, and returns to its save state',async()=>{
+  const f=fixture({id:'test-user'}),saved=Engine.create(()=>.5);
+  saved.start();saved.state.hp=143;f.setSnapshot(saved.snapshot());
+  await f.window.SeaDefense.open();await f.flush();await f.action('start');
+  const formal=f.game;assert.equal(formal.state.paused,false);
+  formal.trigger('secondary',true);assert.equal(formal.state.secondary,true);
+  await f.element('#sea-trial-switch').emit('click');
+  assert.equal(formal.state.phase,'playing');assert.equal(formal.state.paused,true);
+  assert.equal(formal.state.secondary,false);assert.equal(f.game.mode,'trial');
+  assert.match(f.element('#sea-save-status').textContent,/不保存进度/);
+  await f.element('#sea-trial-switch').emit('click');
+  assert.equal(formal.state.hp,143);assert.equal(formal.state.phase,'playing');
+  assert.equal(formal.state.paused,true);
+  assert.match(f.element('.sea-overlay').innerHTML,/继续战斗/);
+  assert.match(f.element('#sea-save-status').textContent,/已保存|账号存档/);
+  assert.ok(f.writes.every(write=>write.snapshot.state.hp===143),'only formal snapshots are saved');
+  await f.dialog.close();
+});
+test('failed campaign saves block trial entry and cannot be bypassed by logging out inside trial',async()=>{
+  const f=fixture({id:'test-user'});await f.window.SeaDefense.open();await f.flush();
+  f.setWriteFailure(true);await f.element('#sea-trial-switch').emit('click');
+  assert.equal(f.game.mode,'campaign');
+  assert.match(f.element('#sea-save-status').textContent,/网络中断/);
+  f.setWriteFailure(false);await f.element('#sea-trial-switch').emit('click');
+  assert.equal(f.game.mode,'trial');
+  f.setWriteFailure(true);
+  await assert.rejects(()=>f.window.SeaDefense.beforeLogout(),/正式战役进度尚未保存/);
+  assert.equal(f.dialog.open,true);
+  f.setWriteFailure(false);await f.window.SeaDefense.beforeLogout();
+  assert.equal(f.dialog.open,false);
+});
+test('rapid trial clicks share one pending save and cannot reset an already started trial',async()=>{
+  const f=fixture({id:'test-user'});await f.window.SeaDefense.open();await f.flush();
+  let releaseWrite;f.setWriteGate(new Promise(resolve=>releaseWrite=resolve));
+  const first=f.element('#sea-trial-switch').emit('click');
+  const second=f.element('#sea-trial-switch').emit('click');
+  assert.equal(f.element('#sea-trial-switch').disabled,true);
+  assert.equal(f.game.mode,'campaign');
+  releaseWrite();await Promise.all([first,second]);
+  assert.equal(f.game.mode,'trial');assert.equal(f.writes.length,1);
+  await f.action('start');assert.equal(f.game.state.phase,'playing');
+  f.game.state.spawnLeft=0;f.game.state.enemies=[];f.frame(1000);f.frame(1016);
+  assert.equal(f.game.state.phase,'shop');
+  await f.flush();assert.equal(f.game.state.phase,'shop');
+  assert.equal(f.writes.length,1);
+  await f.element('#sea-trial-switch').emit('click',{detail:1});
+  await f.element('#sea-trial-switch').emit('click',{detail:2});
+  assert.match(f.element('#sea-wave').innerHTML,/16/);
+  assert.equal(f.writes.length,1,'double-clicking return does not re-enter trial');
+  await f.dialog.close();
+});
+test('double-clicking trial replay starts only one new run',async()=>{
+  const f=fixture();await f.window.SeaDefense.open();await f.flush();
+  await f.action('trial');await f.action('start');
+  f.game.state.phase='victory';f.frame(1000);
+  const replay=()=>f.dialog.emit('click',{detail:1,target:{closest:selector=>selector==='[data-sea-action]'?{dataset:{seaAction:'replay-trial'}}:null}});
+  await replay();
+  const restarted=f.game;
+  assert.equal(restarted.state.phase,'playing');
+  await f.dialog.emit('click',{detail:2,target:{closest:selector=>selector==='[data-sea-action]'?{dataset:{seaAction:'replay-trial'}}:null}});
+  assert.equal(f.game,restarted);
+  assert.equal(f.game.state.phase,'playing');
   await f.dialog.close();
 });

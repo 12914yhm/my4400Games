@@ -10,13 +10,15 @@
     high: Object.freeze({name:'高',hp:1.15,damage:1.15,spacing:1,maxAlive:5,reward:1})
   });
   const campaign = typeof module !== 'undefined' && module.exports ? require('./sea-campaign') : root.SeaCampaign;
-  const {WAVES,LEVELS,TYPES} = campaign;
+  const {WAVES,LEVELS,TRIAL_LEVELS,TYPES} = campaign;
+  const TRIAL_PERKS = Object.freeze({reload:{name:'快速装填',description:'主炮装填时间缩短 20%'},
+    magazine:{name:'扩容弹匣',description:'副武器弹匣增加 12 发'},repair:{name:'应急修复',description:'立即恢复 50 点耐久'}});
   const TURRET_SCALE = .75 * 1.25, SHIP_SCALE = 2 * .75;
   const MAIN_MUZZLE = 49 * TURRET_SCALE;
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
   const SIDE_GUN = Object.freeze({ forward: 37 * TURRET_SCALE, lateral: 29 * TURRET_SCALE, size: 44 * TURRET_SCALE });
   const shipRadius = enemy => enemy.radius * SHIP_SCALE;
-  const GUARDIAN_AURA = 150, MISSILE_WINDUP = 2.2;
+  const GUARDIAN_AURA = 150, MISSILE_WINDUP = 2.2, GUNSHIP_WINDUP = .9, ESCORT_DURATION = 9;
   const HULL_CLASS = Object.freeze({patrol:'small',fast:'small',raider:'small',fighter:'air',submarine:'sub',
     armored:'medium',destroyer:'medium',missile:'medium',guardian:'shield',tender:'medium',
     battleship:'large',carrier:'large',boss:'large',dreadnought:'large'});
@@ -56,7 +58,9 @@
     const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length)) : 0;
     return Math.hypot(px - ax - t * dx, py - ay - t * dy);
   }
-  function create(random = Math.random) {
+  function create(random = Math.random, options = {}) {
+    const mode=options.mode==='trial'?'trial':'campaign',trial=mode==='trial';
+    const levels=trial?TRIAL_LEVELS:LEVELS,waveCount=levels.length;
     const state = {
       phase: 'ready', paused: false, difficulty: 'normal', wave: 1, hp: 200, maxHp: 200, credits: 100, score: 0, kills: 0,
       upgrades: { power: 0, rate: 0, cannon: 0, armor: 0 }, items: [1, 1, 1, 1],
@@ -65,7 +69,8 @@
       cannonCooldown: 0, gunCooldown: 0, gunAmmo: 36, gunReload: 0,
       recoil: 0, gunRecoil: [0,0], shield: 0, freeze: 0,
       enemies: [], bullets: [], hostile: [], effects: [], spawnLeft: 0, total: 0, destroyed: 0,
-      spawnTimer: 0, elapsed: 0, accumulator: 0, lastReward: 0, damageFlash: 0, message: '', event: 0
+      spawnTimer: 0, elapsed: 0, accumulator: 0, lastReward: 0, damageFlash: 0, message: '', event: 0,
+      trialTime:0,trialWaveTime:0,trialInterceptions:0,trialPerks:[],trialPicked:false
     };
     let serial = 0, secondarySide = -1;
     const sounds = [];
@@ -74,13 +79,16 @@
     function weaponStats(slot, id = state.loadout[slot]) {
       const weapon = weapons.find(slot,id); if(!weapon)return null;
       const cannon = slot === 'primary';
+      const reloadBoost=trial&&state.trialPerks.includes('reload')?.8:1;
       return {...weapon, damage:weapon.damage + state.upgrades[cannon?'cannon':'power']*(cannon?30:5)/weapon.count,
-        interval:weapon.interval/(1+state.upgrades.rate*(cannon ? .17 : .2)),
-        reload:cannon?weapon.interval/(1+state.upgrades.rate*.17):weapon.reload/(1+state.upgrades.rate*.12),
+        magazine:cannon?weapon.magazine:weapon.magazine+(trial&&state.trialPerks.includes('magazine')?12:0),
+        interval:weapon.interval/(1+state.upgrades.rate*(cannon ? .17 : .2))*(cannon?reloadBoost:1),
+        reload:cannon?weapon.interval/(1+state.upgrades.rate*.17)*reloadBoost:weapon.reload/(1+state.upgrades.rate*.12),
         radius:cannon?weapon.radius+state.upgrades.cannon*10:0};
     }
     const cannonDelay = () => weaponStats('primary').interval;
     function equip(slot,id) {
+      if(trial)return false;
       const weapon = weapons.find(slot,id);
       if(!weapon || weapon.wave>weapons.unlockWave(state) || !(['ready','shop'].includes(state.phase) || (state.phase==='playing'&&state.paused)))return false;
       if(state.loadout[slot]===id)return false;
@@ -115,8 +123,9 @@
     }
     function pause(value = !state.paused) { state.paused = Boolean(value); release(); drainSounds(); }
     function beginWave() {
-      state.phase = 'playing'; state.paused = false; state.total = LEVELS[state.wave-1].fleet.length;
+      state.phase = 'playing'; state.paused = false; state.total = levels[state.wave-1].fleet.length;
       state.spawnLeft = state.total; state.destroyed = 0; state.spawnTimer = .8;
+      if(trial){state.trialWaveTime=0;state.trialPicked=false;}
       state.enemies = []; state.hostile = []; state.bullets = []; state.effects = [];
       state.shield = 0; state.freeze = 0; state.cannonCooldown = 0; state.gunCooldown = 0;
       state.gunAmmo = weaponStats('secondary').magazine; state.gunReload = 0;
@@ -126,8 +135,22 @@
     function start() { if (state.phase !== 'ready') return false; beginWave(); return true; }
     function nextWave() {
       if (state.phase !== 'shop') return false;
-      if(state.wave>=WAVES)return false;
+      if(state.wave>=waveCount||trial&&!state.trialPicked)return false;
       state.wave++; beginWave(); return true;
+    }
+    function choosePerk(id){
+      if(!trial||state.phase!=='shop'||state.trialPicked||!TRIAL_PERKS[id]||state.trialPerks.includes(id))return false;
+      state.trialPerks.push(id);state.trialPicked=true;
+      if(id==='magazine')state.gunAmmo=Math.min(weaponStats('secondary').magazine,state.gunAmmo+12);
+      if(id==='repair')state.hp=Math.min(state.maxHp,state.hp+50);
+      state.message=`已选择${TRIAL_PERKS[id].name}`;return true;
+    }
+    function finishTrialWave(){
+      if(!trial||state.phase!=='playing')return;
+      state.phase=state.wave===waveCount?'victory':'shop';
+      state.enemies=[];state.hostile=[];state.bullets=[];state.spawnLeft=0;release();
+      state.message=state.phase==='victory'?'指挥舰已击沉，试玩胜利！':'目标完成，选择一项战场改造。';
+      emit(state.phase==='victory'?'victory':'wave');
     }
     function effect(x, y, kind, size = 25, detail = {}) {
       const duration = kind === 'airstrike' ? 1 : kind === 'ship-sink' ?
@@ -172,6 +195,7 @@
         effect(enemy.x,enemy.y,'ship-sink',shipRadius(enemy),{hull,type:enemy.type,angle:enemy.angle});
         if (hull !== 'sub') effect(enemy.x,enemy.y,'explosion',shipRadius(enemy)*(hull==='large'?2.8:hull==='small'?.95:1.5));
         emit('ship-sink:'+hull);
+        if(trial&&enemy.command)finishTrialWave();
       }
     }
     function hitBase(damage) {
@@ -182,20 +206,35 @@
       if (state.hp <= 0) { state.phase = 'over'; release(); emit('defeat'); }
     }
     function spawn() {
-      const fleet=LEVELS[state.wave-1].fleet;
-      const type=fleet[Math.max(0,state.total-state.spawnLeft)%fleet.length];
+      const fleet=levels[state.wave-1].fleet;
+      const index=Math.max(0,state.total-state.spawnLeft);
+      const type=fleet[index%fleet.length];
       const config = TYPES[type], side = Math.floor(random() * 4);
       let x, y;
-      if (side === 0) { x = -VIEW_PAD_X - 35; y = -VIEW_PAD_Y + 35 + random() * (VIEW_H - 70); }
+      // The opening escorts are derived from wave and fleet index, so a save
+      // between the two arrivals needs no additional formation state.
+      if ((mode==='campaign'&&(state.wave===8||state.wave===9)||trial&&state.wave===3)&&index<2) {
+        if(state.wave===8||trial){x=W+VIEW_PAD_X+35-index*20;y=CY-50+index*105;}
+        else{x=CX-50+index*105;y=-VIEW_PAD_Y-35+index*20;}
+        if(index===1){
+          const leader=state.enemies.find(enemy=>enemy.escort===1&&enemy.hp>0);
+          if(leader){x=leader.x+(state.wave===8||trial?-20:105);y=leader.y+(state.wave===8||trial?105:20);}
+        }
+      }
+      else if (side === 0) { x = -VIEW_PAD_X - 35; y = -VIEW_PAD_Y + 35 + random() * (VIEW_H - 70); }
       else if (side === 1) { x = W + VIEW_PAD_X + 35; y = -VIEW_PAD_Y + 35 + random() * (VIEW_H - 70); }
       else if (side === 2) { x = -VIEW_PAD_X + 35 + random() * (VIEW_W - 70); y = -VIEW_PAD_Y - 35; }
       else { x = -VIEW_PAD_X + 35 + random() * (VIEW_W - 70); y = H + VIEW_PAD_Y + 35; }
+      if(trial&&state.wave===3&&index===2){x=W+VIEW_PAD_X+35;y=CY-130;}
       const difficulty=DIFFICULTIES[state.difficulty];
-      const hp = Math.round(config.hp * (1 + (Math.min(state.wave,8) - 1) * .1 + Math.max(0,state.wave-8)*.045) * difficulty.hp);
+      const hp = trial&&state.wave===3&&index===2?Math.round(300*difficulty.hp)
+        :Math.round(config.hp * (1 + (Math.min(state.wave,8) - 1) * .1 + Math.max(0,state.wave-8)*.045) * difficulty.hp);
       state.enemies.push({ ...config, radius:config.radius*1.2, damage:Math.round(config.damage*difficulty.damage), reward:Math.round(config.reward*difficulty.reward), id: serial++, type, x, y, hp, maxHp: hp,
         angle: Math.atan2(CY - y, CX - x), cooldown: 3.3 + random() * 1.2,
         turn: random() > .5 ? 1 : -1, age: 0, flash: 0, submerged: false, chill:0,
-        barrier:type==='guardian'?100:0,windup:0 });
+        barrier:type==='guardian'?100:0,windup:0,
+        command:trial&&state.wave===3&&index===2,
+        escort:(mode==='campaign'&&(state.wave===8||state.wave===9)||trial&&state.wave===3)&&index<2?index+1:0 });
       state.spawnLeft--;
     }
     function launchFighter(carrier) {
@@ -216,6 +255,11 @@
         state.hostile.push({x:enemy.x,y:enemy.y,vx:Math.cos(a)*velocity,vy:Math.sin(a)*velocity,
           damage:enemy.damage,torpedo:enemy.type==='submarine',missile:enemy.type==='missile',dead:false});
       }
+    }
+    function interceptShell(shell){
+      if(shell.dead)return;
+      shell.dead=true;
+      if(trial){state.trialInterceptions++;state.score+=20;}
     }
     function fire(type) {
       const cannon = type === 'primary', angle = state.angle;
@@ -255,7 +299,7 @@
       if(weapon.mode==='chain'){
         const shell=state.hostile.filter(p=>!p.dead&&along(p)>0&&along(p)<(targets[0]?along(targets[0]):range)
           &&Math.abs((p.x-origin.x)*dy-(p.y-origin.y)*dx)<10).sort((a,b)=>along(a)-along(b))[0];
-        if(shell){shell.dead=true;beam(origin,shell);return;}
+        if(shell){interceptShell(shell);beam(origin,shell);return;}
         if(targets.length){
           let from=origin;
           for(let i=0;i<3;i++){
@@ -278,7 +322,7 @@
       state.enemies.forEach(e => {
         if (Math.hypot(e.x - bullet.x, e.y - bullet.y) < bullet.radius + shipRadius(e)) hitEnemy(e, bullet.damage);
       });
-      state.hostile.forEach(p => { if (Math.hypot(p.x - bullet.x, p.y - bullet.y) < bullet.radius) p.dead = true; });
+      state.hostile.forEach(p => { if (Math.hypot(p.x - bullet.x, p.y - bullet.y) < bullet.radius) interceptShell(p); });
     }
     function useItem(index) {
       if (state.phase !== 'playing' || state.paused || !Number.isInteger(index) || index < 0 || index > 3 || state.items[index] < 1) return false;
@@ -298,6 +342,7 @@
       return ITEMS.find(item => item.id === id)?.price ?? Infinity;
     }
     function purchase(id) {
+      if(trial)return false;
       if (state.phase !== 'shop') return false;
       const cost = price(id), upgrade = UPGRADES[id], index = ITEMS.findIndex(item => item.id === id);
       if (id === 'fullRepair') {
@@ -319,6 +364,11 @@
       state.recoil = Math.max(0, state.recoil - dt); state.damageFlash = Math.max(0, state.damageFlash - dt);
       state.gunRecoil = state.gunRecoil.map(remaining => Math.max(0, remaining - dt));
       if (state.phase !== 'playing') return;
+      if(trial){
+        state.trialTime+=dt;state.trialWaveTime+=dt;
+        if(state.wave===2&&state.trialWaveTime>=35-1e-8){state.trialWaveTime=35;finishTrialWave();return;}
+        if(state.wave===2&&state.spawnLeft===0&&state.enemies.length===0){state.spawnLeft=2;state.total+=2;state.spawnTimer=1.1;}
+      }
       state.shield = Math.max(0, state.shield - dt); state.freeze = Math.max(0, state.freeze - dt);
       const wasCooling = state.cannonCooldown > 0;
       state.cannonCooldown = Math.max(0, state.cannonCooldown - dt); state.gunCooldown = Math.max(0, state.gunCooldown - dt);
@@ -328,12 +378,16 @@
       if (wasReloading && !state.gunReload) { state.gunAmmo = weaponStats('secondary').magazine; emit('ready'); }
       if (state.primary && !state.cannonCooldown) fire('primary');
       if (state.secondary && !state.gunCooldown && !state.gunReload) fire('secondary');
+      if(state.phase!=='playing')return;
       state.spawnTimer -= dt;
       if (state.spawnLeft > 0 && state.spawnTimer <= 0) {
         const difficulty=DIFFICULTIES[state.difficulty];
-        const cap=difficulty.maxAlive+Math.floor((state.wave-1)/4);
+        const cap=trial&&state.wave===3?Math.max(3,difficulty.maxAlive)
+          :difficulty.maxAlive+Math.floor((state.wave-1)/4);
         if (state.enemies.filter(enemy=>enemy.hp>0).length < cap) {
-          spawn(); state.spawnTimer = Math.max(.9, 2.4 - state.wave * .13) * difficulty.spacing;
+          const index=state.total-state.spawnLeft;
+          spawn(); state.spawnTimer = (mode==='campaign'&&(state.wave===8||state.wave===9)||trial&&state.wave===3)&&index===0
+            ? .7 : Math.max(.9, 2.4 - state.wave * .13) * difficulty.spacing;
         } else state.spawnTimer = .25;
       }
       const slow = state.freeze > 0 ? .25 : 1;
@@ -341,9 +395,22 @@
       for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         enemy.chill=Math.max(0,(enemy.chill||0)-dt);
-        const movement=slow*(enemy.chill>0?.45:1);
+        const mate=enemy.escort===1?state.enemies.find(ally=>ally.escort===2&&ally.hp>0&&ally.age<ESCORT_DURATION)
+          :enemy.escort===2?state.enemies.find(ally=>ally.escort===1&&ally.hp>0&&ally.age<ESCORT_DURATION):null;
+        // An escort holds formation at the slower ship's speed, so chilling
+        // either hull slows both positions without letting the pair split.
+        const movement=slow*Math.min(enemy.chill>0?.45:1,mate?.chill>0?.45:1);
         enemy.age += dt * movement; enemy.flash = Math.max(0, enemy.flash - dt);
         enemy.submerged = enemy.type === 'submarine' && enemy.age % 9 < 4;
+        const leader=enemy.escort===2?mate:null;
+        const following=!!leader;
+        if(enemy.escort===1&&enemy.age>=ESCORT_DURATION||enemy.escort===2&&!leader)enemy.escort=0;
+        if(following){
+          // Keep the escort within both support auras without overlapping hulls.
+          // The leader moves first, so this offset also survives save/restore.
+          enemy.x=leader.x+(state.wave===8||trial?-20:105);
+          enemy.y=leader.y+(state.wave===8||trial?105:20);
+        }
         const dx = CX - enemy.x, dy = CY - enemy.y, distance = Math.hypot(dx, dy), angle = Math.atan2(dy, dx);
         if(['raider','fighter'].includes(enemy.type) && distance<58){
           hitBase(enemy.damage);enemy.hp=0;if(!enemy.launched)state.destroyed++;
@@ -356,23 +423,33 @@
         const visible=enemy.x>=-VIEW_PAD_X+margin&&enemy.x<=W+VIEW_PAD_X-margin
           &&enemy.y>=-VIEW_PAD_Y+margin&&enemy.y<=H+VIEW_PAD_Y-margin;
         if (distance > enemy.range || !visible) {
-          enemy.angle = angle; enemy.x += Math.cos(angle) * enemy.speed * dt * movement; enemy.y += Math.sin(angle) * enemy.speed * dt * movement;
+          enemy.angle = angle;
+          if(!following){enemy.x += Math.cos(angle) * enemy.speed * dt * movement; enemy.y += Math.sin(angle) * enemy.speed * dt * movement;}
         } else {
-          enemy.angle = angle + enemy.turn * 1.05;
-          const retreat=distance<enemy.range*.78?enemy.speed*1.2*dt*movement:0;
-          const orbit=enemy.speed*.38*dt*movement;
-          const nextX=enemy.x-Math.cos(angle)*retreat-Math.sin(angle)*enemy.turn*orbit;
-          const nextY=enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit;
-          if(nextX<-VIEW_PAD_X+margin||nextX>W+VIEW_PAD_X-margin
-            ||nextY<-VIEW_PAD_Y+margin||nextY>H+VIEW_PAD_Y-margin)enemy.turn*=-1;
-          enemy.x=Math.max(-VIEW_PAD_X+margin,Math.min(W+VIEW_PAD_X-margin,
-            enemy.x-Math.cos(angle)*retreat-Math.sin(angle)*enemy.turn*orbit));
-          enemy.y=Math.max(-VIEW_PAD_Y+margin,Math.min(H+VIEW_PAD_Y-margin,
-            enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit));
+          enemy.angle = following?angle:angle + enemy.turn * 1.05;
+          if(!following){
+            const retreat=distance<enemy.range*.78?enemy.speed*1.2*dt*movement:0;
+            const orbit=enemy.speed*.38*dt*movement;
+            const nextX=enemy.x-Math.cos(angle)*retreat-Math.sin(angle)*enemy.turn*orbit;
+            const nextY=enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit;
+            if(nextX<-VIEW_PAD_X+margin||nextX>W+VIEW_PAD_X-margin
+              ||nextY<-VIEW_PAD_Y+margin||nextY>H+VIEW_PAD_Y-margin)enemy.turn*=-1;
+            enemy.x=Math.max(-VIEW_PAD_X+margin,Math.min(W+VIEW_PAD_X-margin,
+              enemy.x-Math.cos(angle)*retreat-Math.sin(angle)*enemy.turn*orbit));
+            enemy.y=Math.max(-VIEW_PAD_Y+margin,Math.min(H+VIEW_PAD_Y-margin,
+              enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit));
+          }
           enemy.cooldown -= dt * movement;
-          if(enemy.type==='missile' && enemy.windup>0){
+          if(enemy.windup>0){
             enemy.windup=Math.max(0,enemy.windup-dt*movement);
             if(enemy.windup===0){
+              if(enemy.type==='tender'){
+                for(const ally of state.enemies)if(ally!==enemy&&ally.hp>0&&Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<130){
+                  const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+28);
+                  if(ally.hp>before)effect(ally.x,ally.y,'repair',shipRadius(ally));
+                }
+                effect(enemy.x,enemy.y,'repair',130);
+              }
               fireHostileVolley(enemy,angle);
               enemy.cooldown=enemy.interval/(1+(state.wave-1)*.04);
             }
@@ -384,18 +461,10 @@
               enemy.cooldown=enemy.interval/(1+(state.wave-1)*.025);
               continue;
             }
-            if(enemy.type==='tender'){
-              for(const ally of state.enemies)if(ally!==enemy&&ally.hp>0&&Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<130){
-                const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+28);
-                if(ally.hp>before)effect(ally.x,ally.y,'repair',shipRadius(ally));
-              }
-              effect(enemy.x,enemy.y,'repair',130);
-            }
             if(enemy.type==='missile'){
               enemy.windup=MISSILE_WINDUP;emit('missile-lock');continue;
             }
-            fireHostileVolley(enemy,angle);
-            enemy.cooldown = enemy.interval / (1 + (state.wave - 1) * .04);
+            enemy.windup=GUNSHIP_WINDUP;
           }
         }
       }
@@ -406,7 +475,7 @@
         let hit = false;
         if (bullet.type === 'secondary') {
           for (const shell of state.hostile) {
-            if (!shell.dead && distanceToSegment(shell.x, shell.y, ox, oy, bullet.x, bullet.y) < 10) { shell.dead = true; hit = true; effect(shell.x, shell.y, 'spark', 10); break; }
+            if (!shell.dead && distanceToSegment(shell.x, shell.y, ox, oy, bullet.x, bullet.y) < (trial?14:10)) { interceptShell(shell); hit = true; effect(shell.x, shell.y, 'spark', 10); break; }
           }
         }
         if (!hit) for (const enemy of state.enemies) {
@@ -419,6 +488,7 @@
         if (!hit && bullet.remaining <= 0 && bullet.type === 'primary') detonate(bullet);
         bullet.dead = hit || bullet.remaining <= 0 || bullet.x < -VIEW_PAD_X - 50 || bullet.x > W + VIEW_PAD_X + 50 || bullet.y < -VIEW_PAD_Y - 50 || bullet.y > H + VIEW_PAD_Y + 50;
       }
+      if(state.phase!=='playing')return;
       for (const shell of state.hostile) {
         if (shell.dead) continue;
         shell.x += shell.vx * dt * slow; shell.y += shell.vy * dt * slow;
@@ -428,7 +498,8 @@
       }
       state.bullets = state.bullets.filter(b => !b.dead); state.hostile = state.hostile.filter(b => !b.dead);
       state.enemies = state.enemies.filter(e => e.hp > 0);
-      if (state.phase === 'playing' && state.spawnLeft === 0 && state.enemies.length === 0) {
+      if (trial&&state.wave===1&&state.spawnLeft===0&&state.enemies.length===0){finishTrialWave();return;}
+      if (!trial&&state.phase === 'playing' && state.spawnLeft === 0 && state.enemies.length === 0) {
         state.hp=Math.min(state.maxHp,state.hp+25);
         state.lastReward = 100 + state.wave * 30; state.credits += state.lastReward; state.score += 200 * state.wave;
         state.phase = state.wave === WAVES ? 'victory' : 'shop'; state.hostile = []; state.bullets = []; release();
@@ -442,11 +513,13 @@
     }
     const saves = typeof module !== 'undefined' && module.exports ? require('./sea-save') : root.SeaSave;
     function snapshot() {
+      if(trial)throw new Error('试玩进度不保存');
       return saves.clean({ version: 2, state: { ...state,
         enemies: state.enemies.filter(e => e.hp > 0), bullets: state.bullets.filter(b => !b.dead), hostile: state.hostile.filter(b => !b.dead)
       } });
     }
     function restore(value) {
+      if(trial)throw new Error('试玩模式不能载入战役存档');
       Object.assign(state, saves.clean(value).state);
       // Older saves retain their old short attack ranges; adopt the current
       // fleet behavior without resetting health, position, or cooldown.
@@ -454,8 +527,8 @@
       serial = Math.max(0, ...state.enemies.map(e => e.id + 1));
       state.paused = state.phase === 'playing'; release(); resetRecoil(); drainSounds();
     }
-    return { state, setAim, setDifficulty, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
+    return { mode,levels,waveCount,state, setAim, setDifficulty, trigger, release, pause, start, nextWave, choosePerk, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
   }
-  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, GUARDIAN_AURA, MISSILE_WINDUP, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
+  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, TRIAL_LEVELS, TRIAL_PERKS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, GUARDIAN_AURA, MISSILE_WINDUP, GUNSHIP_WINDUP, ESCORT_DURATION, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

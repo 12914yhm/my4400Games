@@ -57,10 +57,16 @@
       enemy.chill=s.enemies[i].chill??0;enemy.barrier=s.enemies[i].barrier??(enemy.type==='guardian'?100:0);
       enemy.launched=s.enemies[i].launched??false;
       enemy.windup=s.enemies[i].windup??0;
+      enemy.escort=s.enemies[i].escort??0;
       if(!n(0,2)(enemy.chill)||!n(0,100)(enemy.barrier)||enemy.type!=='guardian'&&enemy.barrier!==0)throw new Error('敌舰状态无效');
       if(!bool(enemy.launched)||enemy.launched&&enemy.type!=='fighter')throw new Error('舰载机状态无效');
-      if(!n(0,2.2)(enemy.windup)||enemy.type!=='missile'&&enemy.windup!==0)throw new Error('导弹锁定状态无效');
+      const windupLimit=enemy.type==='missile'?2.2:['carrier','raider','fighter'].includes(enemy.type)?0:.9;
+      if(!n(0,windupLimit)(enemy.windup))throw new Error('敌舰开火预警状态无效');
+      const escortType=state.wave===8?['guardian','armored']:state.wave===9?['tender','guardian']:[];
+      if(!n(0,2,true)(enemy.escort)||enemy.escort>0&&enemy.type!==escortType[enemy.escort-1])throw new Error('护航编队状态无效');
     });
+    if(state.enemies.filter(enemy=>enemy.escort===1).length>1||state.enemies.filter(enemy=>enemy.escort===2).length>1)
+      throw new Error('护航编队重复');
     if (new Set(state.enemies.map(e => e.id)).size !== state.enemies.length) throw new Error('敌舰编号重复');
     state.bullets = list(s.bullets, { ...position, vx: n(-1000, 1000), vy: n(-1000, 1000), type: one(['primary', 'secondary']), damage: n(0, 1000), remaining: n(0, 2000), radius: n(0, 200) }, 128);
     state.bullets.forEach((bullet,i)=>{
