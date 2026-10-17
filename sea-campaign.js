@@ -2,20 +2,20 @@
 (function(root){
   'use strict';
   const TYPES = {
-    patrol:{name:'巡逻艇',hp:54,speed:37,radius:17,reward:30,damage:10,interval:4.2,range:240},
-    fast:{name:'快艇',hp:38,speed:64,radius:13,reward:35,damage:8,interval:3.5,range:185},
-    armored:{name:'装甲巡洋舰',hp:160,speed:24,radius:24,reward:70,damage:18,interval:5,range:270},
-    submarine:{name:'潜艇',hp:88,speed:32,radius:17,reward:50,damage:16,interval:5.2,range:235},
-    boss:{name:'重装旗舰',hp:700,speed:16,radius:37,reward:250,damage:23,interval:2.5,range:230},
+    patrol:{name:'巡逻艇',hp:54,speed:37,radius:17,reward:30,damage:10,interval:4.2,range:325},
+    fast:{name:'快艇',hp:38,speed:64,radius:13,reward:35,damage:8,interval:3.5,range:285},
+    armored:{name:'装甲巡洋舰',hp:160,speed:24,radius:24,reward:70,damage:18,interval:5,range:370},
+    submarine:{name:'潜艇',hp:88,speed:32,radius:17,reward:50,damage:16,interval:5.2,range:330},
+    boss:{name:'重装旗舰',hp:700,speed:16,radius:37,reward:250,damage:23,interval:2.5,range:390},
     raider:{name:'汽油自爆艇',hp:45,speed:88,radius:14,reward:45,damage:24,interval:4,range:42},
-    destroyer:{name:'舰队驱逐舰',hp:115,speed:42,radius:20,reward:65,damage:13,interval:4.1,range:280},
-    battleship:{name:'重炮战列舰',hp:440,speed:17,radius:33,reward:190,damage:27,interval:3.4,range:320},
-    carrier:{name:'舰队航母',hp:390,speed:18,radius:35,reward:220,damage:12,interval:5.8,range:350},
+    destroyer:{name:'舰队驱逐舰',hp:115,speed:42,radius:20,reward:65,damage:13,interval:4.1,range:385},
+    battleship:{name:'重炮战列舰',hp:440,speed:17,radius:33,reward:190,damage:27,interval:3.4,range:430},
+    carrier:{name:'舰队航母',hp:390,speed:18,radius:35,reward:220,damage:12,interval:5.8,range:440},
     fighter:{name:'舰载攻击机',hp:32,speed:92,radius:10,reward:28,damage:11,interval:4.5,range:35},
-    missile:{name:'远程导弹舰',hp:120,speed:22,radius:24,reward:80,damage:10,interval:5,range:350},
-    guardian:{name:'棱镜护盾舰',hp:170,speed:23,radius:27,reward:100,damage:16,interval:4.8,range:260},
-    tender:{name:'曙光维修舰',hp:130,speed:28,radius:23,reward:90,damage:6,interval:5,range:290},
-    dreadnought:{name:'深渊无畏舰',hp:1600,speed:14,radius:43,reward:600,damage:16,interval:3.8,range:285}
+    missile:{name:'远程导弹舰',hp:120,speed:22,radius:24,reward:80,damage:10,interval:5,range:455},
+    guardian:{name:'棱镜护盾舰',hp:170,speed:23,radius:27,reward:100,damage:16,interval:4.8,range:360},
+    tender:{name:'曙光维修舰',hp:130,speed:28,radius:23,reward:90,damage:6,interval:5,range:390},
+    dreadnought:{name:'深渊无畏舰',hp:1600,speed:14,radius:43,reward:600,damage:16,interval:3.8,range:420}
   };
   const chapters=['近海警戒','烈焰航道','风暴屏障','深渊决战'];
   const specs=[

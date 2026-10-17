@@ -181,7 +181,7 @@
       const difficulty=DIFFICULTIES[state.difficulty];
       const hp = Math.round(config.hp * (1 + (Math.min(state.wave,8) - 1) * .1 + Math.max(0,state.wave-8)*.045) * difficulty.hp);
       state.enemies.push({ ...config, radius:config.radius*1.2, damage:Math.round(config.damage*difficulty.damage), reward:Math.round(config.reward*difficulty.reward), id: serial++, type, x, y, hp, maxHp: hp,
-        angle: Math.atan2(CY - y, CX - x), cooldown: 1.8 + random() * 1.2,
+        angle: Math.atan2(CY - y, CX - x), cooldown: 3.3 + random() * 1.2,
         turn: random() > .5 ? 1 : -1, age: 0, flash: 0, submerged: false, chill:0, barrier:type==='guardian'?100:0 });
       state.spawnLeft--;
     }
@@ -328,12 +328,25 @@
           effect(enemy.x,enemy.y,'explosion',enemy.type==='raider'?shipRadius(enemy)*2.2:shipRadius(enemy)*1.2);
           emit('explosion');continue;
         }
-        if (distance > enemy.range) {
+        // Surface ships must enter the visible sea before engaging. Only the
+        // suicide boat and aircraft intentionally try to reach the battery.
+        const margin=shipRadius(enemy)*.45;
+        const visible=enemy.x>=-VIEW_PAD_X+margin&&enemy.x<=W+VIEW_PAD_X-margin
+          &&enemy.y>=-VIEW_PAD_Y+margin&&enemy.y<=H+VIEW_PAD_Y-margin;
+        if (distance > enemy.range || !visible) {
           enemy.angle = angle; enemy.x += Math.cos(angle) * enemy.speed * dt * movement; enemy.y += Math.sin(angle) * enemy.speed * dt * movement;
         } else {
-          enemy.angle = angle + enemy.turn * .55;
-          enemy.x += Math.cos(angle + enemy.turn * Math.PI / 2) * enemy.speed * .32 * dt * movement;
-          enemy.y += Math.sin(angle + enemy.turn * Math.PI / 2) * enemy.speed * .32 * dt * movement;
+          enemy.angle = angle + enemy.turn * 1.05;
+          const retreat=distance<enemy.range*.78?enemy.speed*1.2*dt*movement:0;
+          const orbit=enemy.speed*.38*dt*movement;
+          const nextX=enemy.x-Math.cos(angle)*retreat-Math.sin(angle)*enemy.turn*orbit;
+          const nextY=enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit;
+          if(nextX<-VIEW_PAD_X+margin||nextX>W+VIEW_PAD_X-margin
+            ||nextY<-VIEW_PAD_Y+margin||nextY>H+VIEW_PAD_Y-margin)enemy.turn*=-1;
+          enemy.x=Math.max(-VIEW_PAD_X+margin,Math.min(W+VIEW_PAD_X-margin,
+            enemy.x-Math.cos(angle)*retreat-Math.sin(angle)*enemy.turn*orbit));
+          enemy.y=Math.max(-VIEW_PAD_Y+margin,Math.min(H+VIEW_PAD_Y-margin,
+            enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit));
           enemy.cooldown -= dt * movement;
           if (enemy.cooldown <= 0) {
             if(enemy.type==='carrier'){
@@ -404,6 +417,9 @@
     }
     function restore(value) {
       Object.assign(state, saves.clean(value).state);
+      // Older saves retain their old short attack ranges; adopt the current
+      // fleet behavior without resetting health, position, or cooldown.
+      state.enemies.forEach(enemy=>{enemy.range=TYPES[enemy.type].range;});
       serial = Math.max(0, ...state.enemies.map(e => e.id + 1));
       state.paused = state.phase === 'playing'; release(); resetRecoil(); drainSounds();
     }

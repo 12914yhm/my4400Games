@@ -62,3 +62,41 @@ test('new ships have larger matching hit areas and remain valid in cloud saves',
   assert.equal(ship.radius,Engine.TYPES[ship.type].radius*1.2);
   assert.equal(Save.clean(game.snapshot()).state.enemies[0].radius,ship.radius);
 });
+
+test('gunships enter the visible sea, hold a firing lane, and attack before reaching the base', () => {
+  for (const type of ['patrol', 'armored', 'missile', 'battleship', 'tender']) {
+    const game=Engine.create(()=>.5);game.start();game.state.spawnLeft=1;game.state.spawnTimer=999;
+    const config=Engine.TYPES[type],enemy={...config,id:1,type,x:Engine.CX+config.range+30,y:Engine.CY,
+      hp:1000,maxHp:1000,angle:Math.PI,cooldown:0,turn:1,age:0,flash:0,submerged:false,chill:0,barrier:0};
+    game.state.enemies=[enemy];advance(game,10);
+    assert.ok(Math.hypot(enemy.x-Engine.CX,enemy.y-Engine.CY)>config.range*.75,type+' approached the battery');
+    assert.ok(game.state.hp<200,type+' did not fire from its lane');
+    assert.equal(game.state.destroyed,0);
+  }
+  const game=Engine.create(()=>.5);game.start();game.state.spawnLeft=1;game.state.spawnTimer=999;
+  const config=Engine.TYPES.missile,enemy={...config,id:1,type:'missile',x:Engine.CX,y:-Engine.VIEW_PAD_Y-35,
+    hp:1000,maxHp:1000,angle:Math.PI/2,cooldown:0,turn:1,age:0,flash:0,submerged:false,chill:0,barrier:0};
+  game.state.enemies=[enemy];advance(game,.02);assert.equal(game.state.hostile.length,0);
+  advance(game,5);assert.ok(enemy.y>=-Engine.VIEW_PAD_Y+enemy.radius*Engine.SHIP_SCALE*.45);
+  assert.ok(game.state.hostile.length>0||game.state.hp<200);
+});
+
+test('an old active save adopts current gunship ranges without moving ships or changing their damage', () => {
+  const game=Engine.create(()=>.5);game.start();advance(game,1);
+  const saved=game.snapshot(),before=saved.state.enemies[0];before.range=185;
+  const restored=Engine.create();restored.restore(saved);
+  const enemy=restored.state.enemies[0];
+  assert.equal(enemy.range,Engine.TYPES[enemy.type].range);
+  assert.equal(enemy.x,before.x);assert.equal(enemy.y,before.y);
+  assert.equal(enemy.hp,before.hp);assert.equal(enemy.damage,before.damage);
+});
+
+test('the opening wave still gives time to react despite longer enemy firing ranges', () => {
+  const game=Engine.create(()=>.5);game.start();
+  let firstHit=-1;
+  for(let frame=0;frame<120*13;frame++){
+    game.step(1/120);
+    if(game.state.hp<200){firstHit=frame/120;break;}
+  }
+  assert.ok(firstHit>=8&&firstHit<13,`first hit after ${firstHit}s`);
+});
