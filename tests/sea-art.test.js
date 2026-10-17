@@ -28,6 +28,10 @@ test('art is lazy, shares one load and renders every enemy and explosion endpoin
   const f = fixture(); assert.equal(f.requests.length, 0);
   const pending = f.art.load(); assert.equal(f.art.load(), pending);
   assert.equal(f.requests.length, 29);
+  for (const name of ['missile','guardian','tender']) {
+    assert.ok(f.requests.some(image => image.url.endsWith(`/art/sea/${name}-v2.png`)));
+    assert.ok(!f.requests.some(image => image.url.endsWith(`/art/sea/${name}-v1.svg`)));
+  }
   f.requests.forEach(image => image.onload()); await pending;
   assert.equal(f.art.status, 'ready'); assert.equal(f.art.loaded, 29); assert.equal(f.timers.size, 0);
   const ctx = f.context();

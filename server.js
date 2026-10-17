@@ -16,7 +16,7 @@ for (const id of ['cannon','spread','howitzer','machinegun','twin','rapid']) {
   routes['/art/sea/' + file] = 'assets/sea/weapons-v1/' + file;
 }
 for(const id of ['weapon-laser','weapon-railgun','weapon-plasma','weapon-cryo','weapon-tesla','missile','guardian','tender','dreadnought'])routes['/art/sea/'+id+'-v1.svg']='assets/sea/expansion/'+id+'-v1.svg';
-for(const file of ['fuel-boat-v2.png','destroyer-v2.png','battleship-v2.png','carrier-v2.png','fighter-v2.png'])routes['/art/sea/'+file]='assets/sea/fleet-v2/'+file;
+for(const file of ['fuel-boat-v2.png','destroyer-v2.png','battleship-v2.png','carrier-v2.png','fighter-v2.png','missile-v2.png','guardian-v2.png','tender-v2.png'])routes['/art/sea/'+file]='assets/sea/fleet-v2/'+file;
 for(const id of ['machinegun','twin','rapid','spread','cannon','howitzer','impact'])routes['/audio/sea/'+id+'.mp3']='assets/sea/audio-v1/'+id+'.mp3';
 routes['/audio/sea/CREDITS.md']='assets/sea/audio-v1/CREDITS.md';
 const types = { '.mp3':'audio/mpeg', '.svg':'image/svg+xml', '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.md': 'text/plain; charset=utf-8' };

@@ -4,12 +4,13 @@
     ocean: 'ocean-battlefield-v2', base: 'battery-base-v1', turret: 'battery-turret-v1',
     patrol: 'patrol-boat-v1', fast: 'fast-boat-v1', armored: 'armored-cruiser-v1',
     raider: 'fuel-boat-v2', destroyer: 'destroyer-v2', battleship: 'battleship-v2',
-    carrier: 'carrier-v2', fighter: 'fighter-v2',
+    carrier: 'carrier-v2', fighter: 'fighter-v2', missile: 'missile-v2',
+    guardian: 'guardian-v2', tender: 'tender-v2',
     submarine: 'submarine-v1', boss: 'enemy-flagship-v1', explosion: 'explosion-sheet-v2'
   };
   for (const id of ['cannon','spread','howitzer','machinegun','twin','rapid']) sources['weapon_' + id] = 'weapon-' + id + '-v1';
   for(const id of ['laser','railgun','plasma','cryo','tesla'])sources['weapon_'+id]='weapon-'+id+'-v1.svg';
-  for(const id of ['missile','guardian','tender','dreadnought'])sources[id]=id+'-v1.svg';
+  sources.dreadnought='dreadnought-v1.svg';
   const textures = {}, flashes = {}, frames = [];
   let pending, status = 'idle', loaded = 0, generation = 0;
   function surface(w, h) {

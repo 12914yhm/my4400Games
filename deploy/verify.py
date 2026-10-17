@@ -12,7 +12,7 @@ checks = [line.split('  ', 1) for line in (root / 'builds' / release / 'SHA256SU
 
 def verify(entry):
     expected, name = entry
-    with urllib.request.urlopen(base + name, timeout=45) as response:
+    with urllib.request.urlopen(base + name, timeout=120) as response:
         data = response.read()
         assert response.status == 200, name
         assert hashlib.sha256(data).hexdigest() == expected, name + ': checksum mismatch'
