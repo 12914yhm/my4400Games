@@ -21,7 +21,7 @@ test('audio waits for user unlock; mute stops voices and persists preference',()
 });
 test('all effects produce voices, enforce a voice cap, and stop without replaying old sounds',()=>{
   const f=fixture();f.audio.unlock();
-  for(const kind of ['gun','cannon','explosion','hit','overheat','ready','cooled','shield','wave','victory','defeat']){f.contexts[0].currentTime++;const count=f.nodes.length;f.audio.play(kind);assert.ok(f.nodes.length>count,kind);}
+  for(const kind of ['gun','cannon','explosion','hit','overheat','missile-lock','ready','cooled','shield','wave','victory','defeat']){f.contexts[0].currentTime++;const count=f.nodes.length;f.audio.play(kind);assert.ok(f.nodes.length>count,kind);}
   for(let i=0;i<100;i++){f.contexts[0].currentTime++;f.audio.play('gun');}
   assert.ok(f.nodes.filter(n=>n.started&&!n.stopped).length<=64);
   f.audio.stop();const count=f.nodes.length;f.audio.play('gun');assert.equal(f.nodes.length,count);

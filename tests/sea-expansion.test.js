@@ -35,8 +35,50 @@ test('freezing bullets slow enemies, persist status and allow thawing',()=>{
 });
 test('repair ships heal nearby living allies and missile ships fire a three-round volley',()=>{
  const g=game(),tender=ship('tender',1,700),ally=ship('armored',2,730);tender.cooldown=0;ally.hp=500;g.state.enemies=[tender,ally];advance(g,.01);
- assert.equal(ally.hp,528);assert.ok(g.state.effects.some(e=>e.kind==='repair'));
- const h=game(),missile=ship('missile',1,700);missile.cooldown=0;h.state.enemies=[missile];advance(h,.01);assert.equal(h.state.hostile.length,3);assert.equal(new Set(h.state.hostile.map(p=>p.vy)).size,3);
+ assert.equal(ally.hp,528);assert.ok(g.state.effects.some(e=>e.kind==='repair'&&Math.hypot(e.x-ally.x,e.y-ally.y)<5));
+ const h=game(),missile=ship('missile',1,700);missile.cooldown=0;h.state.enemies=[missile];advance(h,.01);
+ assert.equal(h.state.hostile.length,0);assert.ok(missile.windup>0);
+ assert.ok(h.drainSounds().includes('missile-lock'));
+ const saved=h.snapshot(),restored=E.create();restored.restore(saved);
+ assert.equal(restored.state.enemies[0].windup,missile.windup);
+ advance(h,E.MISSILE_WINDUP+.02);
+ assert.equal(h.state.hostile.length,3);assert.ok(h.state.hostile.every(p=>p.missile));
+ assert.equal(new Set(h.state.hostile.map(p=>p.vy)).size,3);
+ const volley=h.snapshot(),resumed=E.create();resumed.restore(volley);
+ assert.ok(resumed.state.hostile.every(p=>p.missile));
+ const oldShells=structuredClone(volley);oldShells.state.hostile.forEach(p=>delete p.missile);
+ assert.ok(Save.clean(oldShells).state.hostile.every(p=>p.missile===false));
+});
+test('machinegun rounds intercept a marked missile before it reaches the battery',()=>{
+ const g=game('cannon','machinegun'),target=ship('armored',1,900);g.state.enemies=[target];g.state.spawnLeft=1;
+ const muzzle=E.secondaryMuzzle(0,-1);
+ g.state.hostile=[{x:muzzle.x+80,y:muzzle.y,vx:-80,vy:0,damage:10,torpedo:false,missile:true,dead:false}];
+ g.setAim(900,E.CY);g.trigger('secondary',true);g.release();advance(g,.11);
+ assert.equal(g.state.hostile.length,0);assert.equal(g.state.hp,200);
+});
+test('destroying a locking missile ship cancels its volley and old saves default to idle',()=>{
+ const g=game('laser'),missile=ship('missile',1,700);missile.hp=35;missile.cooldown=0;g.state.enemies=[missile];
+ advance(g,.01);assert.ok(missile.windup>0);
+ const old=g.snapshot();delete old.state.enemies[0].windup;
+ assert.equal(Save.clean(old).state.enemies[0].windup,0);
+ const bad=g.snapshot();bad.state.enemies[0].windup=3;
+ assert.throws(()=>Save.clean(bad),/导弹锁定/);
+ g.setAim(missile.x,missile.y);g.trigger('primary',true);g.release();
+ advance(g,E.MISSILE_WINDUP+.1);assert.equal(g.state.hostile.length,0);
+});
+test('guardian aura protects nearby ships until its shared barrier breaks; railgun bypasses it',()=>{
+ const g=game('laser'),ally=ship('armored',1,620),guardian=ship('guardian',2,700);
+ g.state.enemies=[ally,guardian];g.setAim(ally.x,ally.y);g.trigger('primary',true);g.release();
+ assert.equal(ally.hp,1000-g.weaponStats('primary').damage*.5);
+ assert.equal(guardian.barrier,100-g.weaponStats('primary').damage*.5);
+ assert.ok(g.state.effects.some(e=>e.kind==='hull-hit'&&e.hull==='shield'&&e.type==='armored'));
+ const h=game('railgun'),target=ship('armored',1,620),escort=ship('guardian',2,700);
+ h.state.enemies=[target,escort];h.setAim(target.x,target.y);h.trigger('primary',true);
+ assert.equal(target.hp,1000-h.weaponStats('primary').damage);
+ assert.equal(escort.barrier,100);
+ const far=game('laser'),distant=ship('armored',1,610),guard=ship('guardian',2,900);
+ far.state.enemies=[distant,guard];far.setAim(distant.x,distant.y);far.trigger('primary',true);
+ assert.equal(distant.hp,1000-far.weaponStats('primary').damage);
 });
 test('ramming ships damage the base once and finish the wave without kill rewards',()=>{
  const g=game(),raider=ship('raider',1,530);g.state.enemies=[raider];g.state.hp=100;advance(g,.01);

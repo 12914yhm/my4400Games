@@ -56,8 +56,10 @@
     state.enemies.forEach((enemy,i)=>{
       enemy.chill=s.enemies[i].chill??0;enemy.barrier=s.enemies[i].barrier??(enemy.type==='guardian'?100:0);
       enemy.launched=s.enemies[i].launched??false;
+      enemy.windup=s.enemies[i].windup??0;
       if(!n(0,2)(enemy.chill)||!n(0,100)(enemy.barrier)||enemy.type!=='guardian'&&enemy.barrier!==0)throw new Error('敌舰状态无效');
       if(!bool(enemy.launched)||enemy.launched&&enemy.type!=='fighter')throw new Error('舰载机状态无效');
+      if(!n(0,2.2)(enemy.windup)||enemy.type!=='missile'&&enemy.windup!==0)throw new Error('导弹锁定状态无效');
     });
     if (new Set(state.enemies.map(e => e.id)).size !== state.enemies.length) throw new Error('敌舰编号重复');
     state.bullets = list(s.bullets, { ...position, vx: n(-1000, 1000), vy: n(-1000, 1000), type: one(['primary', 'secondary']), damage: n(0, 1000), remaining: n(0, 2000), radius: n(0, 200) }, 128);
@@ -68,6 +70,8 @@
       bullet.weapon=id;
     });
     state.hostile = list(s.hostile, { ...position, vx: n(-1000, 1000), vy: n(-1000, 1000), damage: n(0, 100), torpedo: bool }, 256);
+    state.hostile.forEach((shell,i)=>{shell.missile=s.hostile[i].missile??false;
+      if(!bool(shell.missile)||shell.missile&&shell.torpedo)throw new Error('导弹状态无效');});
     // Never restore held controls, pending sounds, animations or fractional ticks.
     Object.assign(state, { primary: false, secondary: false, effects: [], accumulator: 0, damageFlash: 0, message: '' });
     // An old eight-wave victory becomes the resupply stop before chapter three.

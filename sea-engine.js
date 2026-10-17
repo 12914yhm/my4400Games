@@ -16,6 +16,7 @@
   // Shared by the renderer and simulation: local forward / lateral muzzle offsets.
   const SIDE_GUN = Object.freeze({ forward: 37 * TURRET_SCALE, lateral: 29 * TURRET_SCALE, size: 44 * TURRET_SCALE });
   const shipRadius = enemy => enemy.radius * SHIP_SCALE;
+  const GUARDIAN_AURA = 150, MISSILE_WINDUP = 2.2;
   const HULL_CLASS = Object.freeze({patrol:'small',fast:'small',raider:'small',fighter:'air',submarine:'sub',
     armored:'medium',destroyer:'medium',missile:'medium',guardian:'shield',tender:'medium',
     battleship:'large',carrier:'large',boss:'large',dreadnought:'large'});
@@ -139,6 +140,17 @@
     }
     function hitEnemy(enemy, damage, bypassShield = false) {
       if (enemy.hp <= 0) return;
+      if(!bypassShield && enemy.type!=='guardian'){
+        const guardian=state.enemies.filter(ally=>ally.type==='guardian'&&ally.hp>0&&ally.barrier>0
+          &&Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<=GUARDIAN_AURA)
+          .sort((a,b)=>Math.hypot(a.x-enemy.x,a.y-enemy.y)-Math.hypot(b.x-enemy.x,b.y-enemy.y))[0];
+        if(guardian){
+          const absorbed=Math.min(guardian.barrier,damage*.5);
+          guardian.barrier-=absorbed;damage-=absorbed;
+          effect(enemy.x,enemy.y,'hull-hit',shipRadius(enemy),{hull:'shield',type:enemy.type,angle:enemy.angle});
+          emit('ship-hit:shield');
+        }
+      }
       if(!bypassShield && enemy.barrier>0){const absorbed=Math.min(enemy.barrier,damage);enemy.barrier-=absorbed;damage-=absorbed;}
       if (damage <= 0) {
         if (state.elapsed - (enemy.lastFeedback ?? -Infinity) >= .12) {
@@ -182,7 +194,8 @@
       const hp = Math.round(config.hp * (1 + (Math.min(state.wave,8) - 1) * .1 + Math.max(0,state.wave-8)*.045) * difficulty.hp);
       state.enemies.push({ ...config, radius:config.radius*1.2, damage:Math.round(config.damage*difficulty.damage), reward:Math.round(config.reward*difficulty.reward), id: serial++, type, x, y, hp, maxHp: hp,
         angle: Math.atan2(CY - y, CX - x), cooldown: 3.3 + random() * 1.2,
-        turn: random() > .5 ? 1 : -1, age: 0, flash: 0, submerged: false, chill:0, barrier:type==='guardian'?100:0 });
+        turn: random() > .5 ? 1 : -1, age: 0, flash: 0, submerged: false, chill:0,
+        barrier:type==='guardian'?100:0,windup:0 });
       state.spawnLeft--;
     }
     function launchFighter(carrier) {
@@ -193,7 +206,16 @@
         reward:Math.round(config.reward*difficulty.reward),id:serial++,type:'fighter',
         x:carrier.x+Math.cos(angle)*shipRadius(carrier)*.55,
         y:carrier.y+Math.sin(angle)*shipRadius(carrier)*.55,hp,maxHp:hp,angle,
-        cooldown:config.interval,turn:1,age:0,flash:0,submerged:false,chill:0,barrier:0,launched:true};
+        cooldown:config.interval,turn:1,age:0,flash:0,submerged:false,chill:0,barrier:0,windup:0,launched:true};
+    }
+    function fireHostileVolley(enemy,angle) {
+      const velocity=enemy.type==='submarine'?100:enemy.type==='missile'?175:140;
+      const count=['missile','dreadnought'].includes(enemy.type)?3:1;
+      for(let i=0;i<count && state.hostile.length<240;i++){
+        const a=angle+(i-(count-1)/2)*.09;
+        state.hostile.push({x:enemy.x,y:enemy.y,vx:Math.cos(a)*velocity,vy:Math.sin(a)*velocity,
+          damage:enemy.damage,torpedo:enemy.type==='submarine',missile:enemy.type==='missile',dead:false});
+      }
     }
     function fire(type) {
       const cannon = type === 'primary', angle = state.angle;
@@ -348,6 +370,14 @@
           enemy.y=Math.max(-VIEW_PAD_Y+margin,Math.min(H+VIEW_PAD_Y-margin,
             enemy.y-Math.sin(angle)*retreat+Math.cos(angle)*enemy.turn*orbit));
           enemy.cooldown -= dt * movement;
+          if(enemy.type==='missile' && enemy.windup>0){
+            enemy.windup=Math.max(0,enemy.windup-dt*movement);
+            if(enemy.windup===0){
+              fireHostileVolley(enemy,angle);
+              enemy.cooldown=enemy.interval/(1+(state.wave-1)*.04);
+            }
+            continue;
+          }
           if (enemy.cooldown <= 0) {
             if(enemy.type==='carrier'){
               const plane=launchFighter(enemy);if(plane)launched.push(plane);
@@ -355,15 +385,16 @@
               continue;
             }
             if(enemy.type==='tender'){
-              for(const ally of state.enemies)if(ally!==enemy&&ally.hp>0&&Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<130)ally.hp=Math.min(ally.maxHp,ally.hp+28);
+              for(const ally of state.enemies)if(ally!==enemy&&ally.hp>0&&Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<130){
+                const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+28);
+                if(ally.hp>before)effect(ally.x,ally.y,'repair',shipRadius(ally));
+              }
               effect(enemy.x,enemy.y,'repair',130);
             }
-            const velocity=enemy.type==='submarine'?100:enemy.type==='missile'?175:140;
-            const count=['missile','dreadnought'].includes(enemy.type)?3:1;
-            for(let i=0;i<count && state.hostile.length<240;i++){
-              const a=angle+(i-(count-1)/2)*.09;
-              state.hostile.push({x:enemy.x,y:enemy.y,vx:Math.cos(a)*velocity,vy:Math.sin(a)*velocity,damage:enemy.damage,torpedo:enemy.type==='submarine',dead:false});
+            if(enemy.type==='missile'){
+              enemy.windup=MISSILE_WINDUP;emit('missile-lock');continue;
             }
+            fireHostileVolley(enemy,angle);
             enemy.cooldown = enemy.interval / (1 + (state.wave - 1) * .04);
           }
         }
@@ -425,6 +456,6 @@
     }
     return { state, setAim, setDifficulty, trigger, release, pause, start, nextWave, useItem, price, purchase, step, cannonDelay, drainSounds, snapshot, restore, equip, weaponStats };
   }
-  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
+  const api = { create, W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, TYPES, ITEMS, UPGRADES, WAVES, LEVELS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, GUARDIAN_AURA, MISSILE_WINDUP, RECOIL, recoilOffset, secondaryMuzzle, distanceToSegment, WEAPONS:weapons.WEAPONS, unlockWave:weapons.unlockWave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.SeaEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

@@ -225,6 +225,8 @@
         } else if (kind === 'overheat') {
           [0,.16,.32].forEach(delay => voice({ frequency:640, end:400, duration:.12, volume:.17, delay, type:'sawtooth' }));
           voice({ noiseVoice:true, duration:.7, volume:.12, cutoff:2200 });
+        } else if (kind === 'missile-lock') {
+          [0,.24].forEach(delay=>voice({frequency:740,end:560,duration:.15,volume:.13,delay,type:'sine'}));
         } else if (kind === 'ready' || kind === 'cooled' || kind === 'shield') {
           voice({ frequency:kind==='shield'?320:660, end:kind==='shield'?1000:880, duration:.17, volume:.16, type:'sine' });
         } else if (kind === 'wave' || kind === 'victory' || kind === 'defeat') {

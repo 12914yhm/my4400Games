@@ -286,3 +286,16 @@ test('wake follows hull size and measured movement, fades when stopped, and stay
   assert.equal(f.wakeDrawings.length,0,'submerged ships have no surface wake');
   await f.dialog.close();
 });
+
+test('battlefield shows missile lock warning and guardian coverage in the canvas',async()=>{
+  const f=fixture();await f.window.SeaDefense.open();await f.action('start');f.game.pause(true);
+  const enemy=(type,id,x)=>({...Engine.TYPES[type],type,id,x,y:300,
+    radius:Engine.TYPES[type].radius*1.2,hp:100,maxHp:100,angle:Math.PI,age:0,flash:0,
+    submerged:false,chill:0,barrier:type==='guardian'?100:0,windup:type==='missile'?1.1:0});
+  f.game.state.enemies=[enemy('missile',1,750),enemy('guardian',2,700),enemy('armored',3,620)];
+  f.frame(1000);
+  assert.match(f.element('#sea-wave-label').textContent,/导弹锁定/);
+  assert.ok(f.drawings.filter(name=>name==='setLineDash').length>4);
+  assert.ok(f.drawings.includes('battery'));
+  await f.dialog.close();
+});

@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, RECOIL, recoilOffset, unlockWave } = window.SeaEngine;
+  const { W, H, CX, CY, VIEW_PAD_X, VIEW_PAD_Y, VIEW_W, VIEW_H, DIFFICULTIES, WAVES, LEVELS, TYPES, ITEMS, UPGRADES, WEAPONS, TURRET_SCALE, SHIP_SCALE, MAIN_MUZZLE, SIDE_GUN, GUARDIAN_AURA, MISSILE_WINDUP, RECOIL, recoilOffset, unlockWave } = window.SeaEngine;
   const art = window.SeaArt;
   const audio = window.SeaAudio.create();
   const dialog = document.createElement('dialog');
@@ -240,7 +240,7 @@
       button.disabled = s.phase !== 'playing' || s.paused || s.items[i] === 0 || (i === 0 && s.hp >= s.maxHp) || (i === 1 && s.shield > 0) || (i === 3 && s.freeze > 0);
     });
     $('#sea-wave').title=LEVELS[s.wave-1].name;
-    text('#sea-wave-label', s.phase === 'playing' ? `第 ${s.wave} 关 · ${LEVELS[s.wave-1].name} · ${s.destroyed} / ${s.total}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : `${LEVELS[s.wave-1].chapter} · ${LEVELS[s.wave-1].name}`);
+    text('#sea-wave-label', s.phase === 'playing' ? `第 ${s.wave} 关 · ${LEVELS[s.wave-1].name} · ${s.destroyed} / ${s.total}${s.enemies.some(e=>e.type==='missile'&&e.windup>0)?'  /  导弹锁定！':''}${s.shield ? `  /  护盾 ${Math.ceil(s.shield)}s` : ''}${s.freeze ? `  /  干扰 ${Math.ceil(s.freeze)}s` : ''}` : `${LEVELS[s.wave-1].chapter} · ${LEVELS[s.wave-1].name}`);
     const key = s.phase + ':' + s.paused + ':' + s.difficulty + ':' + restartConfirm + ':' + art.status + ':' + loadingSave + ':' + loadError;
     if (!force && key === overlayKey) return;
     overlayKey = key;
@@ -439,9 +439,26 @@
       const vignette=ctx.createRadialGradient(CX,CY,160,CX,CY,720);vignette.addColorStop(0,'transparent');vignette.addColorStop(1,'#061c3238');ctx.fillStyle=vignette;ctx.fillRect(-VIEW_PAD_X,-VIEW_PAD_Y,VIEW_W,VIEW_H);
     }
     ctx.setLineDash([3,8]);circle(CX,CY,155,null,'#bed9b51c');circle(CX,CY,260,null,'#bed9b513');ctx.setLineDash([]);
+    for(const guardian of s.enemies.filter(e=>e.type==='guardian'&&e.barrier>0)){
+      ctx.save();ctx.setLineDash([7,9]);
+      circle(guardian.x,guardian.y,GUARDIAN_AURA,'#75dfff05','#8ae9ff55',1.5);
+      ctx.setLineDash([]);ctx.strokeStyle='#8ae9ff33';ctx.lineWidth=1.5;
+      for(const ally of s.enemies)if(ally!==guardian&&ally.hp>0&&Math.hypot(ally.x-guardian.x,ally.y-guardian.y)<=GUARDIAN_AURA){
+        ctx.beginPath();ctx.moveTo(guardian.x,guardian.y);ctx.lineTo(ally.x,ally.y);ctx.stroke();
+      }
+      ctx.restore();
+    }
+    for(const e of s.enemies.filter(enemy=>enemy.type==='missile'&&enemy.windup>0)){
+      const progress=1-e.windup/MISSILE_WINDUP,r=e.radius*SHIP_SCALE+13;
+      ctx.save();ctx.strokeStyle=`rgba(255,157,104,${.22+progress*.45})`;ctx.lineWidth=2;
+      ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(CX,CY);ctx.stroke();ctx.setLineDash([]);
+      ctx.strokeStyle='#ffae77';ctx.lineWidth=3;ctx.beginPath();ctx.arc(e.x,e.y,r,-Math.PI/2,-Math.PI/2+Math.PI*2*progress);ctx.stroke();
+      ctx.fillStyle='#ffe0ae';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText(`锁定 ${e.windup.toFixed(1)}s`,e.x,e.y+r+19);
+      ctx.restore();
+    }
     if(s.phase==='ready'){ship({x:210,y:170,radius:TYPES.armored.radius*1.2,angle:.3,age:t,type:'armored',hp:1,maxHp:1});ship({x:800,y:400,radius:TYPES.patrol.radius*1.2,angle:3.2,age:t,type:'patrol',hp:1,maxHp:1});ship({x:710,y:120,radius:TYPES.fast.radius*1.2,angle:2.4,age:t,type:'fast',hp:1,maxHp:1});}
     s.enemies.forEach(ship);
-    for(const shell of s.hostile){ctx.strokeStyle=shell.torpedo?'#93d7cf99':'#eeb18299';ctx.lineWidth=shell.torpedo?4:2;ctx.beginPath();ctx.moveTo(shell.x-shell.vx*.08,shell.y-shell.vy*.08);ctx.lineTo(shell.x,shell.y);ctx.stroke();circle(shell.x,shell.y,shell.torpedo?4:3,shell.torpedo?'#d1e1bd':'#ffd0a0');}
+    for(const shell of s.hostile){ctx.strokeStyle=shell.torpedo?'#93d7cf99':shell.missile?'#ff9569cc':'#eeb18299';ctx.lineWidth=shell.torpedo||shell.missile?4:2;ctx.beginPath();ctx.moveTo(shell.x-shell.vx*(shell.missile?.16:.08),shell.y-shell.vy*(shell.missile?.16:.08));ctx.lineTo(shell.x,shell.y);ctx.stroke();circle(shell.x,shell.y,shell.torpedo?4:shell.missile?5:3,shell.torpedo?'#d1e1bd':shell.missile?'#ffce96':'#ffd0a0');}
     // Concrete octagonal battery and independently rotating gun assembly.
     if (!art.battery(ctx,CX,CY,s.angle,s.recoil,s.loadout,s.gunRecoil)) {
     const fallbackScale=.85*TURRET_SCALE;
